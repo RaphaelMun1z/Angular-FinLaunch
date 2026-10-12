@@ -1,0 +1,49 @@
+.movement-aside-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-align: center; }
+.movement-aside-actions .material-symbols-outlined { display: block; line-height: 1; font-size: 18px; }
+.movement-form textarea { width: 100%; min-height: 104px; box-sizing: border-box; resize: vertical; padding: 13px 14px; border: 1px solid #454650; border-radius: 10px; background: #22242b; color: #f6f6f8; font: 500 14px Inter, sans-serif; outline: none; }
+.movement-form textarea:focus { border-color: #ed3114; box-shadow: 0 0 0 3px rgb(237 49 20 / 15%); }
+.movement-category-field { position: relative; display: flex; flex-direction: column; gap: 8px; }
+.movement-field-label { color: #b9bbc4; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+.movement-category-trigger { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 47px; box-sizing: border-box; padding: 12px 14px; border: 1px solid #454650; border-radius: 10px; background: #22242b; color: #777b87; font: 500 14px Inter, sans-serif; text-align: left; cursor: pointer; }
+.movement-category-trigger.has-value { color: #f6f6f8; }
+.movement-category-trigger > span:nth-child(2) { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.movement-category-trigger .material-symbols-outlined { font-size: 19px; }
+.movement-selection-control { position: relative; display: flex; align-items: stretch; }
+.movement-selection-control .movement-category-trigger, .movement-selection-control .movement-payment-trigger { padding-right: 42px; }
+.movement-selection-display { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 47px; box-sizing: border-box; padding: 6px 42px 6px 10px; border: 1px solid #454650; border-radius: 10px; background: transparent; color: #f6f6f8; }
+.movement-selection-display-icon { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border-radius: 50%; background: #343640; color: #f6f6f8; }
+.movement-selection-display-icon .material-symbols-outlined { font-size: 18px; line-height: 1; }
+.movement-selection-display-content { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; flex: 1; }
+.movement-selection-display-content strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.movement-selection-clear { position: absolute; top: 50%; right: 10px; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; transform: translateY(-50%); border: 0; border-radius: 50%; background: #343640; color: #c9cbd2; cursor: pointer; }
+.movement-selection-clear:hover { opacity: .82; }
+.movement-selection-clear .material-symbols-outlined { font-size: 16px; line-height: 1; }
+.movement-category-chevron { color: #aeb0bb; }
+.movement-category-picker { position: absolute; top: calc(100% + 6px); right: 0; left: 0; z-index: 4; display: flex; flex-direction: column; gap: 6px; max-height: 270px; padding: 8px; overflow-y: auto; border: 1px solid #454650; border-radius: 12px; background: #22242b; box-shadow: 0 16px 32px rgb(0 0 0 / 35%); }
+.movement-category-card { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #f6f6f8; text-align: left; cursor: pointer; }
+.movement-category-card:hover, .movement-category-card.selected { border-color: #454650; background: #292b33; }
+.movement-category-card-icon { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border-radius: 9px; color: #f6f6f8; }
+.movement-category-card-icon .material-symbols-outlined { font-size: 18px; }
+.movement-category-card-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+.movement-category-title-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.movement-category-card-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.movement-category-type-tag { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; gap: 4px; min-width: 60px; height: 22px; box-sizing: border-box; padding: 0 6px; border: 1px solid #454650; border-radius: 999px; color: #c9cbd2; font-size: 8px; font-weight: 800; line-height: 1; text-transform: uppercase; }
+.movement-category-type-tag.income { border-color: #216d58; background: #173b34; color: #65d0a8; }
+.movement-category-type-tag.expense { border-color: #804031; background: #45251f; color: #ff8b73; }
+.movement-category-type-tag .material-symbols-outlined { font-size: 13px; line-height: 1; }
+.movement-category-check { visibility: hidden; color: #ed6a50; font-size: 18px; }
+.movement-category-card.selected .movement-category-check { visibility: visible; }
+.movement-category-empty { padding: 14px 10px; color: #aeb0bb; font-size: 12px; text-align: center; }
+.movement-payment-field { position: relative; display: flex; flex-direction: column; gap: 8px; }
+.movement-payment-trigger { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 47px; box-sizing: border-box; padding: 12px 14px; border: 1px solid #454650; border-radius: 10px; background: #22242b; color: #777b87; font: 500 14px Inter, sans-serif; text-align: left; cursor: pointer; }
+.movement-payment-trigger.has-value { color: #f6f6f8; }
+.movement-payment-trigger > span:nth-child(2) { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.movement-payment-trigger .material-symbols-outlined { font-size: 19px; }
+.movement-payment-picker { position: absolute; top: calc(100% + 6px); right: 0; left: 0; z-index: 4; display: flex; flex-direction: column; gap: 6px; max-height: 270px; padding: 8px; overflow-y: auto; border: 1px solid #454650; border-radius: 12px; background: #22242b; box-shadow: 0 16px 32px rgb(0 0 0 / 35%); }
+.movement-payment-card { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #f6f6f8; font: inherit; text-align: left; cursor: pointer; }
+.movement-payment-card:hover, .movement-payment-card.selected { border-color: #454650; background: #292b33; }
+.movement-payment-card-icon { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border-radius: 9px; background: #343640; color: #c9cbd2; }
+.movement-payment-card-icon .material-symbols-outlined { font-size: 18px; }
+.movement-payment-card > span:nth-child(2) { flex: 1; font-size: 13px; }
+.dashboard .dashboard-metrics,
+.dashboard > .dash-section:nth-of-type(5) { display: none; }
