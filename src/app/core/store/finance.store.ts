@@ -71,6 +71,7 @@ export const FinanceStore = signalStore(
       });
     },
     navigate(active: SectionKey): void { patchState(store, { active, selectedId: null, query: "", accountTab: "overview", categoryTab: "overview", editingId: null }); },
+    setActiveAccountId(activeAccountId: string | null): void { patchState(store, { activeAccountId }); },
     resetSession(): void { patchState(store, { ...initialState, sections: initialState.sections }); },
     clearError(): void { patchState(store, { error: null }); },
     selectRecord(selectedId: string | null): void { patchState(store, { selectedId }); },

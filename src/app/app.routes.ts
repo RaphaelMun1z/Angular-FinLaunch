@@ -8,6 +8,7 @@ export const routes: Routes = [
   { path: "login", component: LoginComponent, canActivate: [guestGuard] },
   { path: "unauthorized", component: UnauthorizedComponent },
   { path: "", redirectTo: "overview", pathMatch: "full" },
+  { path: "account/:accountId/:section", component: FinanceShellComponent, canActivate: [authGuard] },
   { path: ":section", component: FinanceShellComponent, canActivate: [authGuard] },
   { path: "**", redirectTo: "" },
 ];

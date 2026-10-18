@@ -34,6 +34,7 @@ export const navigation: NavItem[] = [
 
 export const initialState: FinanceState = {
   sections,
+  activeAccountId: null,
   active: "overview",
   selectedId: null,
   query: "",

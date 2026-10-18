@@ -92,6 +92,7 @@ export interface Filters {
 
 export interface FinanceState {
   sections: Record<SectionKey, SectionData>;
+  activeAccountId: string | null;
   active: SectionKey;
   selectedId: string | null;
   query: string;

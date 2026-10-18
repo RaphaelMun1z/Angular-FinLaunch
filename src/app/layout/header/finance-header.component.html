@@ -1,10 +1,34 @@
 <header class="topbar">
   <a class="brand" href="/" aria-label="FinLaunch - início"><img class="brand-logo" src="assets/finlaunch_logo.png" alt="FinLaunch" /></a>
-  <div class="topbar-center"><span class="workspace-title">Gestão financeira</span></div>
+  @if (activeAccount(); as account) {
+    <div class="active-account-summary" aria-label="Resumo da conta bancária ativa">
+      <div><span>Saldo</span><strong>{{ money(account.balance) }}</strong></div>
+      @if (account.creditTotal !== undefined) { <div><span>Crédito total</span><strong>{{ money(account.creditTotal) }}</strong></div> }
+      @if (account.creditRemaining !== undefined) { <div><span>Crédito disponível</span><strong>{{ money(account.creditRemaining) }}</strong></div> }
+    </div>
+  }
   <div class="topbar-actions">
-    <span class="current-period">{{ period }}</span>
-    <button class="create-btn header-create-btn" type="button" (click)="create.emit()"><span class="material-symbols-outlined">add</span>NOVA MOVIMENTAÇÃO</button>
-    <label class="active-account-select"><span class="material-symbols-outlined">account_balance</span><span class="sr-only">Conta bancária ativa</span><select [value]="activeAccountId" (change)="accountChange.emit(($any($event.target)).value)"><option value="">Conta bancária</option>@for (account of accounts; track account.id) { <option [value]="account.id">{{ account.title }}</option> }</select></label>
+    <div class="topbar-context-actions">
+      <span class="current-period">{{ period }}</span>
+      <button class="create-btn header-create-btn" type="button" (click)="create.emit()"><span class="material-symbols-outlined">add</span>NOVA MOVIMENTAÇÃO</button>
+      <div class="active-account-picker">
+        <button class="active-account-trigger" type="button" aria-label="Selecionar conta bancária ativa" [attr.aria-expanded]="accountPickerOpen()" (click)="toggleAccountPicker()">
+          <span class="account-option-icon material-symbols-outlined">account_balance</span><span class="active-account-label">{{ activeAccountTitle() }}</span><span class="material-symbols-outlined active-account-chevron">{{ accountPickerOpen() ? "expand_less" : "expand_more" }}</span>
+        </button>
+        @if (accountPickerOpen()) {
+          <div class="active-account-options" role="listbox" aria-label="Contas bancárias disponíveis">
+            @if (accounts.length) {
+              <button type="button" class="active-account-option no-account-option" [class.selected]="!activeAccountId" (click)="selectAccount('')"><span class="account-option-icon material-symbols-outlined">remove_circle_outline</span><span class="active-account-option-copy"><strong>Nenhuma</strong></span></button>
+              @for (account of accounts; track account.id) {
+                <button type="button" class="active-account-option" [class.selected]="account.id === activeAccountId" (click)="selectAccount(account.id)"><span class="account-option-icon material-symbols-outlined">account_balance</span><span class="active-account-option-copy"><strong>{{ account.title }}</strong><small>Conta bancária</small></span><span class="material-symbols-outlined account-option-check">{{ account.id === activeAccountId ? "check" : "" }}</span></button>
+              }
+            } @else {
+              <span class="active-account-empty">Nenhuma conta cadastrada.</span>
+            }
+          </div>
+        }
+      </div>
+    </div>
     <div class="user-menu" [class.open]="userMenuOpen" (click)="$event.stopPropagation()">
       <button class="avatar" type="button" aria-label="Abrir menu do usuário" [attr.aria-expanded]="userMenuOpen" (click)="toggleMenu.emit()">{{ initials }}</button>
       @if (userMenuOpen) { <div class="user-popover" role="menu"><strong>{{ user?.nomeCompleto ?? "Usuário" }}</strong><span>{{ user?.email ?? "" }}</span><button type="button" class="user-logout" role="menuitem" (click)="logout.emit()"><span class="material-symbols-outlined">logout</span>Sair</button></div> }

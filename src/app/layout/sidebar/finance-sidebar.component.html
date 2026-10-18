@@ -1,9 +1,53 @@
 <aside class="sidebar">
-  <div class="sidebar-top"><div class="sidebar-heading">NAVEGAÇÃO</div><nav class="nav-list" aria-label="Categorias de gestão">
-    @for (item of navigation; track item.key) {
-      <button class="nav-item" [class.active]="isActive(item)" (click)="navigate.emit(item)"><span class="nav-icon material-symbols-outlined">{{ item.icon }}</span><span>{{ item.label }}</span>@if (item.key === 'transactions') { <span class="nav-count">{{ transactionsCount }}</span> }@if (item.children) { <span class="material-symbols-outlined nav-chevron">expand_more</span> }</button>
-      @if (item.children) { <div class="nav-children">@for (child of item.children; track child.key) { <button class="nav-subitem" [class.active]="isActive(child)" (click)="navigate.emit(child)"><span class="nav-icon material-symbols-outlined">{{ child.icon }}</span><span>{{ child.label }}</span>@if (child.children) { <span class="material-symbols-outlined nav-chevron">expand_more</span> }</button>@if (child.children) { <div class="nav-children">@for (leaf of child.children; track leaf.key) { <button class="nav-subitem" [class.active]="isActive(leaf)" (click)="navigate.emit(leaf)"><span class="nav-icon material-symbols-outlined">{{ leaf.icon }}</span><span>{{ leaf.label }}</span></button> }</div> } } </div> }
-    }
-  </nav></div>
+  <div class="sidebar-top">
+    <nav class="nav-list" aria-label="Navegação financeira">
+      @if (overviewItem(); as item) {
+        <button class="nav-item" [class.active]="isActive(item)" (click)="navigate.emit(item)"><span class="nav-icon material-symbols-outlined">{{ item.icon }}</span><span>{{ item.label }}</span></button>
+      }
+      @if (accountItem(); as item) {
+        <button class="nav-item" [class.active]="isActive(item)" (click)="navigate.emit(item)"><span class="nav-icon material-symbols-outlined">account_balance</span><span>{{ item.label }}</span></button>
+      }
+      @for (item of independentItems(); track item.key) {
+        <button class="nav-item" [class.active]="isActive(item)" (click)="navigate.emit(item)"><span class="nav-icon material-symbols-outlined">{{ item.icon }}</span><span>{{ item.label }}</span></button>
+      }
+
+      @if (activeAccountTitle) {
+        <div class="sidebar-heading navigation-heading active-bank-heading">{{ activeAccountTitle }}</div>
+      }
+
+      @for (item of otherItems(); track item.key) {
+        @if (item.children) {
+          <button class="nav-item" [class.active]="isActive(item)" [attr.aria-expanded]="isExpanded(item)" (click)="toggleNested(item)">
+            <span class="nav-icon material-symbols-outlined">{{ item.icon }}</span><span>{{ item.label }}</span>
+            @if (item.key === 'transactions') { <span class="nav-count">{{ transactionsCount }}</span> }
+            <span class="material-symbols-outlined nav-chevron">{{ isExpanded(item) ? 'expand_more' : 'chevron_right' }}</span>
+          </button>
+          @if (isExpanded(item)) {
+            <div class="nav-children">
+              @for (child of item.children; track child.key) {
+                @if (child.children) {
+                  <button class="nav-subitem" [class.active]="isActive(child)" [attr.aria-expanded]="isExpanded(child)" (click)="toggleNested(child)">
+                    <span class="nav-icon material-symbols-outlined">{{ child.icon }}</span><span>{{ child.label }}</span>
+                    <span class="material-symbols-outlined nav-chevron">{{ isExpanded(child) ? 'expand_more' : 'chevron_right' }}</span>
+                  </button>
+                  @if (isExpanded(child)) {
+                    <div class="nav-children">
+                      @for (leaf of child.children; track leaf.key) {
+                        <button class="nav-subitem" [class.active]="isActive(leaf)" (click)="navigate.emit(leaf)"><span class="nav-icon material-symbols-outlined">{{ leaf.icon }}</span><span>{{ leaf.label }}</span></button>
+                      }
+                    </div>
+                  }
+                } @else {
+                  <button class="nav-subitem" [class.active]="isActive(child)" (click)="navigate.emit(child)"><span class="nav-icon material-symbols-outlined">{{ child.icon }}</span><span>{{ child.label }}</span></button>
+                }
+              }
+            </div>
+          }
+        } @else {
+          <button class="nav-item" [class.active]="isActive(item)" (click)="navigate.emit(item)"><span class="nav-icon material-symbols-outlined">{{ item.icon }}</span><span>{{ item.label }}</span></button>
+        }
+      }
+    </nav>
+  </div>
   <div class="sidebar-bottom"><div class="sidebar-heading">SUA CONTA</div><div class="user-card"><div class="user-avatar">{{ initials }}</div><div><strong>{{ user?.nomeCompleto ?? "" }}</strong><span>{{ user?.email ?? "" }}</span></div><span class="user-more material-symbols-outlined">more_horiz</span></div></div>
 </aside>

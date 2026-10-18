@@ -2,6 +2,7 @@ import {
 	ChangeDetectionStrategy,
 	Component,
 	computed,
+	effect,
 	HostListener,
 	inject,
 	signal,
@@ -48,14 +49,14 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 				[initials]="userInitials()"
 				[userMenuOpen]="userMenuOpen()"
 				[accounts]="movementAccounts()"
-				[activeAccountId]="activeAccountId() || movementAccounts()[0]?.apiId || ''"
+				[activeAccountId]="activeAccountId() || ''"
 				(create)="openMovementAside()"
 				(accountChange)="selectActiveAccount($event)"
 				(toggleMenu)="toggleUserMenu()"
 				(logout)="logout()"
 			/>
 			<div class="app-layout">
-				<app-finance-sidebar [navigation]="navigation" [activeKey]="active()" [transactionsCount]="transactionsCount()" [user]="authUser()" [initials]="userInitials()" (navigate)="navigate($event)" />
+				<app-finance-sidebar [navigation]="sidebarNavigation()" [activeKey]="active()" [transactionsCount]="transactionsCount()" [user]="authUser()" [initials]="userInitials()" [activeAccountTitle]="activeAccountTitle()" (navigate)="navigate($event)" />
 				<aside class="sidebar legacy-sidebar">
 					<div class="sidebar-top">
 						<div class="sidebar-heading">NAVEGAÇÃO</div>
@@ -1292,6 +1293,18 @@ export class FinanceShellComponent {
 	readonly navigation: NavItem[] = navigation.filter(
 		(item) => item.key !== "budgets",
 	);
+	private readonly accountDependentSections = new Set<SectionKey>([
+		"transactions",
+		"cards",
+		"cardCredit",
+		"cardDebit",
+		"cardVoucher",
+		"invoices",
+		"investments",
+	]);
+	readonly sidebarNavigation = computed(() =>
+		this.filterNavigation(this.navigation, this.activeAccountId() !== null),
+	);
 	readonly active = this.store.active;
 	readonly activeSection = this.store.activeSection;
 	readonly selectedRecord = this.store.selectedRecord;
@@ -1317,7 +1330,29 @@ export class FinanceShellComponent {
 		);
 	});
 	readonly movementAccounts = computed(() => this.store.sections().accounts.records.filter((record) => record.apiId));
-	readonly activeAccountId = signal<string | null>(null);
+	readonly activeAccountId = this.store.activeAccountId;
+	readonly activeAccount = computed(() => this.movementAccounts().find((account) => account.apiId === this.activeAccountId()) ?? null);
+	readonly activeAccountTitle = computed(() => this.activeAccount()?.title ?? "");
+	private readonly activeAccountUrlEffect = effect(() => {
+		const requestedId = this.route.snapshot.paramMap.get("accountId") ?? this.route.snapshot.queryParamMap.get("conta");
+		const accounts = this.movementAccounts();
+		if (!accounts.length) return;
+		const account = accounts.find((item) => item.apiId === requestedId);
+		if (account?.apiId && this.activeAccountId() !== account.apiId) {
+			this.store.setActiveAccountId(account.apiId);
+			if (requestedId !== account.apiId) this.updateAccountUrl(account.apiId);
+		} else if (!account && requestedId) {
+			if (this.activeAccountId() !== null) this.store.setActiveAccountId(null);
+			void this.router.navigate(["/"]);
+		}
+	});
+	private readonly accountSectionGuardEffect = effect(() => {
+		const routeAccountId = this.route.snapshot.paramMap.get("accountId") ?? this.route.snapshot.queryParamMap.get("conta");
+		if (this.activeAccountId() === null && !routeAccountId && this.isAccountDependent(this.active())) {
+			this.store.navigate("overview");
+			void this.router.navigate(["/"]);
+		}
+	});
 	readonly movementCategories = computed(() => this.store.sections().categories.records.filter((record) => record.apiId));
 	readonly modalOpen = computed(
 		() => this.store.editingId() !== null || this.modalVisible(),
@@ -1452,9 +1487,18 @@ export class FinanceShellComponent {
 		}
 		this.route.paramMap.subscribe((params) => {
 			const value = params.get("section");
-			if (value && this.isSection(value)) this.store.navigate(value);
+			const accountId = params.get("accountId") ?? this.route.snapshot.queryParamMap.get("conta");
+			if (accountId && this.movementAccounts().some((account) => account.apiId === accountId)) this.store.setActiveAccountId(accountId);
+			if (value && this.isSection(value) && (!this.isAccountDependent(value) || this.activeAccountId() || accountId)) this.store.navigate(value);
 		});
 	}
+	filterNavigation(items: NavItem[], accountSelected: boolean): NavItem[] {
+		return items
+			.filter((item) => accountSelected || !this.isAccountDependent(item.key))
+			.map((item) => item.children ? { ...item, children: this.filterNavigation(item.children, accountSelected) } : item)
+			.filter((item) => !item.children || item.children.length > 0);
+	}
+	isAccountDependent(section: SectionKey): boolean { return this.accountDependentSections.has(section); }
 	isSection(value: string): value is SectionKey {
 		return Object.prototype.hasOwnProperty.call(
 			this.store.sections(),
@@ -1468,10 +1512,13 @@ export class FinanceShellComponent {
 		);
 	}
 	navigate(item: NavItem): void {
+		if (this.activeAccountId() === null && this.isAccountDependent(item.key)) return;
 		if (this.categoryFormOpen() && !this.categorySaving()) this.closeCategoryForm();
 		if (this.accountFormOpen() && !this.accountSaving()) this.closeAccountForm();
 		this.store.navigate(item.key);
-		void this.router.navigate(item.key === "overview" ? ["/"] : [item.key]);
+		const activeAccountId = this.activeAccountId();
+		const useAccountRoute = activeAccountId !== null && this.isAccountDependent(item.key);
+		void this.router.navigate(useAccountRoute ? ["/account", activeAccountId, item.key] : item.key === "overview" ? ["/"] : [item.key]);
 	}
 	toggleUserMenu(): void {
 		this.userMenuOpen.update((open) => !open);
@@ -1590,9 +1637,17 @@ export class FinanceShellComponent {
 		this.movementForm.reset({ type: "", amount: null, accountId: this.activeAccountId() ?? this.movementAccounts()[0]?.apiId ?? "", categoryId: "", method: "", date: "", description: "", recurring: false });
 	}
 	selectActiveAccount(accountId: string): void {
-		this.activeAccountId.set(accountId || null);
+		this.store.setActiveAccountId(accountId || null);
+		this.updateAccountUrl(accountId || null);
 		if (this.movementAsideOpen()) this.movementForm.controls.accountId.setValue(accountId);
 		if (accountId && this.active() === "accounts") this.store.selectRecord(accountId);
+	}
+	updateAccountUrl(accountId: string | null): void {
+		if (accountId && this.isAccountDependent(this.active())) {
+			void this.router.navigate(["/account", accountId, this.active()], { replaceUrl: true });
+		} else {
+			void this.router.navigate(this.active() === "overview" ? ["/"] : [this.active()], { replaceUrl: true });
+		}
 	}
 	closeMovementAside(): void {
 		if (!this.movementSaving()) {
