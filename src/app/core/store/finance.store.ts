@@ -42,41 +42,45 @@ export const FinanceStore = signalStore(
         .subscribe((data) => { if (data) patchState(store, { sections: data.sections, loading: false, error: null }); });
     },
     loadAccountMovements(accountId: string, period: PeriodRequest): void {
+      patchState(store, { loading: true, error: null });
       api.listMovements(accountId, period).subscribe({
         next: (items) => {
           const movements: Movement[] = items.filter((item) => item.descricao !== undefined && item.categoriaId !== undefined && item.valorTotal !== undefined && item.dataLancamento !== undefined).map((item) => ({ title: item.descricao!, category: item.categoriaId!, amount: item.valorTotal!, date: item.dataLancamento!, type: item.valorTotal! >= 0 ? "income" : "expense" }));
           const records = store.sections().accounts.records.map((record) => record.apiId === accountId ? { ...record, movements } : record);
-          patchState(store, { sections: { ...store.sections(), accounts: { ...store.sections().accounts, records } }, error: null });
+          patchState(store, { sections: { ...store.sections(), accounts: { ...store.sections().accounts, records } }, loading: false, error: null });
         },
-        error: (error: unknown) => patchState(store, { error: toUserError(error) }),
+        error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
       });
     },
     loadAccountEntries(accountId: string, period: PeriodRequest): void {
+      patchState(store, { loading: true, error: null });
       api.listEntries(accountId, period).subscribe({
         next: (items) => {
           const movements: Movement[] = items.filter((item) => item.descricao !== undefined && item.valor !== undefined && item.dataLancamento !== undefined).map((item) => ({ title: item.descricao!, category: "Lançamento", amount: item.valor!, date: item.dataLancamento!, type: "expense" }));
           const records = store.sections().accounts.records.map((record) => record.apiId === accountId ? { ...record, movements } : record);
-          patchState(store, { sections: { ...store.sections(), accounts: { ...store.sections().accounts, records } }, error: null });
+          patchState(store, { sections: { ...store.sections(), accounts: { ...store.sections().accounts, records } }, loading: false, error: null });
         },
-        error: (error: unknown) => patchState(store, { error: toUserError(error) }),
+        error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
       });
     },
     loadBudgets(categoryId: string): void {
+      patchState(store, { loading: true, error: null });
       api.listBudgets(categoryId).subscribe({
         next: (items) => {
           const records = items.filter((item) => item.id !== undefined && item.categoria !== undefined && item.valorLimite !== undefined && item.mesReferencia !== undefined).map((item) => ({ id: item.id!, apiId: item.id!, title: item.categoria!, category: "Limite mensal", amount: item.valorLimite!, currentAmount: item.valorCorrente, date: item.mesReferencia!, type: "expense" as const }));
-          patchState(store, { sections: { ...store.sections(), budgets: { ...store.sections().budgets, records } }, error: null });
+          patchState(store, { sections: { ...store.sections(), budgets: { ...store.sections().budgets, records } }, loading: false, error: null });
         },
-        error: (error: unknown) => patchState(store, { error: toUserError(error) }),
+        error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
       });
     },
     loadInvoices(cardId: string, period: PeriodRequest): void {
+      patchState(store, { loading: true, error: null });
       api.listInvoices(cardId, period).subscribe({
         next: (items) => {
           const records = items.filter((item) => item.id !== undefined && item.valorTotal !== undefined && item.dataReferencia !== undefined).map((item) => ({ id: item.id!, apiId: item.id!, title: `Fatura ${item.dataReferencia!}`, category: item.status ?? "", amount: item.valorTotal!, date: item.dataReferencia!, type: "expense" as const, status: item.status }));
-          patchState(store, { sections: { ...store.sections(), invoices: { ...store.sections().invoices, records } }, error: null });
+          patchState(store, { sections: { ...store.sections(), invoices: { ...store.sections().invoices, records } }, loading: false, error: null });
         },
-        error: (error: unknown) => patchState(store, { error: toUserError(error) }),
+        error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
       });
     },
     navigate(active: SectionKey): void { patchState(store, { active, selectedId: null, query: "", accountTab: "overview", cardTab: "overview", categoryTab: "overview", editingId: null }); },

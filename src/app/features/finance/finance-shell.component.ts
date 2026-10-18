@@ -166,6 +166,7 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 						[class.categories-mode]="active() === 'categories'"
 						[class.accounts-mode]="active() === 'accounts'"
 						[class.cards-mode]="cardSectionActive()"
+						[class.resource-list-loading]="resourceLoadingVisible() && loadingTarget() === 'list'"
 					>
 						@if (active() === "overview") {
 							<app-calendar-view
@@ -178,6 +179,7 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 									<h1>{{ activeSection().title }}</h1>
 								</div>
 				@if (active() === "categories" || active() === "accounts" || cardSectionActive()) {
+					<button class="reload-instance-icon" type="button" title="Recarregar registros" aria-label="Recarregar registros" (click)="reloadRecords()"><span class="material-symbols-outlined">refresh</span></button>
 									<button
 										class="new-instance-icon"
 										type="button"
@@ -236,6 +238,7 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 								><span>{{ sortLabel() }}</span>
 							</div>
 							<div class="item-list">
+								@if (resourceLoadingVisible() && loadingTarget() === 'list') { <div class="resource-loading list-resource-loading" [class.resource-loading-active]="store.loading()" role="status" aria-live="polite"><span class="material-symbols-outlined">rocket_launch</span><strong>Carregando registros...</strong></div> }
 								@for (
 									record of filteredRecords();
 									track record.id
@@ -340,7 +343,8 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 								store.categoryTab() === "budgets" &&
 											selectedRecord()
 						) {
-							<div class="category-budget-panel">
+							<div class="category-budget-panel" [class.resource-detail-loading]="resourceLoadingVisible() && loadingTarget() === 'detail'">
+								@if (resourceLoadingVisible() && loadingTarget() === 'detail') { <div class="resource-loading detail-resource-loading" [class.resource-loading-active]="store.loading()" role="status" aria-live="polite"><span class="material-symbols-outlined">rocket_launch</span><strong>Carregando recurso...</strong></div> }
 								@for (
 									budget of categoryBudgets();
 									track budget.id
@@ -654,11 +658,15 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 								<app-finance-record-detail
 									[section]="active()"
 									[record]="record"
+									[loading]="resourceLoadingVisible() && loadingTarget() === 'detail'"
+									[loadingActive]="store.loading()"
 									[accountTab]="store.accountTab()"
 									(accountTabChange)="setAccountTab($event)"
 									[cardTab]="store.cardTab()"
 									[invoices]="store.sections().invoices.records"
+									[invoiceMonth]="invoiceMonth()"
 									(cardTabChange)="setCardTab($event)"
+									(invoiceMonthChange)="setInvoiceMonth($event)"
 								/>
 							}
 							@if (active() === "categories") {
@@ -1412,6 +1420,26 @@ export class FinanceShellComponent {
 	);
 	readonly authUser = this.auth.user;
 	readonly userMenuOpen = signal(false);
+	readonly resourceLoadingVisible = signal(false);
+	readonly loadingTarget = signal<"list" | "detail">("list");
+	private loadingStartedAt = 0;
+	private loadingTimer: ReturnType<typeof setTimeout> | null = null;
+	private readonly resourceLoadingEffect = effect(() => {
+		const loading = this.store.loading();
+		if (loading) {
+			if (!this.resourceLoadingVisible()) this.loadingStartedAt = Date.now();
+			if (this.loadingTimer !== null) clearTimeout(this.loadingTimer);
+			this.resourceLoadingVisible.set(true);
+			return;
+		}
+		const remaining = Math.max(0, 3000 - (Date.now() - this.loadingStartedAt));
+		if (remaining === 0) {
+			this.resourceLoadingVisible.set(false);
+			return;
+		}
+		if (this.loadingTimer !== null) clearTimeout(this.loadingTimer);
+		this.loadingTimer = setTimeout(() => this.resourceLoadingVisible.set(false), remaining);
+	});
 	readonly editingId = this.store.editingId;
 	private readonly modalVisible = signal(false);
 	readonly categoryFormOpen = signal(false);
@@ -1421,6 +1449,7 @@ export class FinanceShellComponent {
 	readonly cardFormOpen = signal(false);
 	readonly cardSaving = signal(false);
 	readonly cardDays = Array.from({ length: 31 }, (_, index) => index + 1);
+	readonly invoiceMonth = signal(this.currentMonth);
 	readonly budgetFormOpen = signal(false);
 	readonly budgetSaving = signal(false);
 	readonly movementAsideOpen = signal(false);
@@ -1550,6 +1579,7 @@ export class FinanceShellComponent {
 	constructor() {
 		if (this.auth.isAuthenticated()) {
 			this.auth.loadUser();
+			this.loadingTarget.set("list");
 			this.store.loadFromApi();
 		}
 		this.route.paramMap.subscribe((params) => {
@@ -1628,10 +1658,14 @@ export class FinanceShellComponent {
 			this.store.setCategoryTab("overview");
 		}
 		const record = this.selectedRecord();
-		if (record?.apiId && this.cardSectionActive() && record.cardType === "CREDITO")
-			this.store.loadInvoices(record.apiId, this.currentPeriod());
-		if (record?.apiId && this.active() === "categories")
+		if (record?.apiId && this.cardSectionActive() && record.cardType === "CREDITO") {
+			this.loadingTarget.set("detail");
+			this.store.loadInvoices(record.apiId, this.periodForMonth(this.invoiceMonth()));
+		}
+		if (record?.apiId && this.active() === "categories") {
+			this.loadingTarget.set("detail");
 			this.store.loadBudgets(record.apiId);
+		}
 	}
 	clearSelection(): void {
 		this.store.selectRecord(null);
@@ -1642,6 +1676,7 @@ export class FinanceShellComponent {
 	setQuery(query: string): void {
 		this.store.setQuery(query);
 	}
+	reloadRecords(): void { this.loadingTarget.set("list"); this.store.loadFromApi(); }
 	toggleCardTypeFilter(): void { this.cardTypeFilterOpen.update((open) => !open); }
 	toggleCardType(type: string): void {
 		const selected = new Set(this.selectedCardTypes());
@@ -1653,6 +1688,7 @@ export class FinanceShellComponent {
 		this.store.setAccountTab(tab);
 		const record = this.selectedRecord();
 		if (record?.apiId && tab !== "overview") {
+			this.loadingTarget.set("detail");
 			const period = this.currentPeriod();
 			if (tab === "movements")
 				this.store.loadAccountMovements(record.apiId, period);
@@ -1662,13 +1698,21 @@ export class FinanceShellComponent {
 	setCardTab(tab: "overview" | "invoices"): void {
 		this.store.setCardTab(tab);
 		const record = this.selectedRecord();
-		if (record?.apiId && tab === "invoices") this.store.loadInvoices(record.apiId, this.currentPeriod());
+		if (record?.apiId && tab === "invoices") { this.loadingTarget.set("detail"); this.store.loadInvoices(record.apiId, this.periodForMonth(this.invoiceMonth())); }
+	}
+	setInvoiceMonth(month: string): void {
+		if (!month) return;
+		this.invoiceMonth.set(month);
+		const record = this.selectedRecord();
+		if (record?.apiId && record.cardType === "CREDITO" && this.store.cardTab() === "invoices") { this.loadingTarget.set("detail"); this.store.loadInvoices(record.apiId, this.periodForMonth(month)); }
 	}
 	setCategoryTab(tab: CategoryTab): void {
 		this.store.setCategoryTab(tab);
 		const record = this.selectedRecord();
-		if (record?.apiId && tab === "budgets")
+		if (record?.apiId && tab === "budgets") {
+			this.loadingTarget.set("detail");
 			this.store.loadBudgets(record.apiId);
+		}
 	}
 	sortLabel(): string {
 		return {
@@ -2043,7 +2087,9 @@ export class FinanceShellComponent {
 		return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date(`${value}-01T12:00:00`)).toUpperCase();
 	}
 	private currentPeriod(): { dataInicial: string; dataFinal: string } {
-		const month = this.store.overviewSelection().value;
+		return this.periodForMonth(this.store.overviewSelection().value);
+	}
+	private periodForMonth(month: string): { dataInicial: string; dataFinal: string } {
 		const [year, monthNumber] = month.split("-").map(Number);
 		const lastDay = new Date(year, monthNumber, 0).getDate();
 		return {
