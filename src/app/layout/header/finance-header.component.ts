@@ -27,8 +27,10 @@ export class FinanceHeaderComponent {
   @Input() userMenuOpen = false;
   @Input() accounts: BankAccountOption[] = [];
   @Input() activeAccountId = "";
+  @Input() createDisabled = false;
   readonly accountPickerOpen = signal(false);
   @Output() readonly create = new EventEmitter<void>();
+  @Output() readonly accountPickerOpened = new EventEmitter<void>();
   @Output() readonly accountChange = new EventEmitter<string>();
   @Output() readonly toggleMenu = new EventEmitter<void>();
   @Output() readonly logout = new EventEmitter<void>();
@@ -45,7 +47,11 @@ export class FinanceHeaderComponent {
     return value === undefined ? "—" : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
   }
 
-  toggleAccountPicker(): void { this.accountPickerOpen.update((open) => !open); }
+  toggleAccountPicker(): void {
+    const opening = !this.accountPickerOpen();
+    this.accountPickerOpen.set(opening);
+    if (opening) this.accountPickerOpened.emit();
+  }
 
   selectAccount(accountId: string): void {
     this.accountPickerOpen.set(false);

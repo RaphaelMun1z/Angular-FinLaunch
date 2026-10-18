@@ -28,7 +28,12 @@ export class FinanceApiService {
 
   listAccounts(): Observable<BankAccountResponse[]> { return this.http.get<BankAccountResponse[]>(`${this.baseUrl}/contas-bancarias`); }
   createAccount(body: BankAccountRequest): Observable<BankAccountResponse> { return this.http.post<BankAccountResponse>(`${this.baseUrl}/contas-bancarias`, body); }
-  listMovements(accountId: string, period: PeriodRequest): Observable<MovementResponse[]> { return this.periodGet<MovementResponse[]>(`/contas-bancarias/${encodeURIComponent(accountId)}/registros-de-movimentacao`, period); }
+  listMovements(accountId: string, period: PeriodRequest): Observable<MovementResponse[]> {
+    const params = new HttpParams()
+      .set("dataInicial", period.dataInicial)
+      .set("dataFinal", period.dataFinal);
+    return this.http.get<MovementResponse[]>(`${this.baseUrl}/contas-bancarias/${encodeURIComponent(accountId)}/registros-de-movimentacao`, { params });
+  }
   createMovement(accountId: string, body: MovementRequest): Observable<MovementResponse> { return this.http.post<MovementResponse>(`${this.baseUrl}/contas-bancarias/${encodeURIComponent(accountId)}/registros-de-movimentacao`, body); }
   listEntries(accountId: string, period: PeriodRequest): Observable<EntryResponse[]> { return this.periodGet<EntryResponse[]>(`/contas-bancarias/${encodeURIComponent(accountId)}/lancamentos`, period); }
 

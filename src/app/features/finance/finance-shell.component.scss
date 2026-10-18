@@ -1,6 +1,9 @@
 :host { --instance-section-gap: 30px; --instance-section-heading-gap: 18px; }
 .content.form-layout .detail-panel { display: block; }
 .content.form-layout .detail-panel > :not(.category-form-panel) { display: none !important; }
+.investment-form { max-width: 860px; }
+.investment-form .category-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 700px) { .investment-form .category-form-grid { grid-template-columns: 1fr; } }
 .card-form > .card-main-fields > label:nth-child(2), .card-form > .card-main-fields > label:nth-child(3), .card-form label:has(select[formControlName="type"]), .card-form label:has(select[formControlName="accountId"]), .card-form label:has(select[formControlName="voucherType"]) { display: none; }
 .card-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .card-form > .card-account-readonly { grid-column: 1; order: 1; }

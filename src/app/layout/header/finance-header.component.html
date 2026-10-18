@@ -10,7 +10,7 @@
   <div class="topbar-actions">
     <div class="topbar-context-actions">
       <span class="current-period">{{ period }}</span>
-      <button class="create-btn header-create-btn" type="button" (click)="create.emit()"><span class="material-symbols-outlined">add</span>NOVA MOVIMENTAÇÃO</button>
+      <button class="create-btn header-create-btn" type="button" [disabled]="createDisabled" [attr.title]="createDisabled ? 'Selecione uma conta bancária' : null" (click)="create.emit()"><span class="material-symbols-outlined">add</span>NOVA MOVIMENTAÇÃO</button>
       <div class="active-account-picker">
         <button class="active-account-trigger" type="button" aria-label="Selecionar conta bancária ativa" [attr.aria-expanded]="accountPickerOpen()" (click)="toggleAccountPicker()">
           <span class="account-option-icon material-symbols-outlined">account_balance</span><span class="active-account-label">{{ activeAccountTitle() }}</span><span class="material-symbols-outlined active-account-chevron">{{ accountPickerOpen() ? "expand_less" : "expand_more" }}</span>

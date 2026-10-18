@@ -9,8 +9,8 @@ import { AccountTab, CardTab, FinanceRecord, SectionKey } from "../../core/model
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./finance-record-detail.component.scss",
   template: `
-    <div class="domain-detail card-detail" [class.resource-detail-loading]="loading" [class.invoices-active]="record.cardType === 'CREDITO' && cardTab === 'invoices'" [class.card-credit-detail]="record.cardType === 'CREDITO'" [class.card-debit-detail]="record.cardType === 'DEBITO'" [class.card-voucher-detail]="record.cardType === 'VOUCHER'">
-      @if (loading) { <div class="resource-loading detail-resource-loading" [class.resource-loading-active]="loadingActive" role="status" aria-live="polite"><span class="material-symbols-outlined">rocket_launch</span><strong>Carregando recurso...</strong></div> }
+    <div class="domain-detail card-detail" [class.resource-detail-loading]="loading" [class.entries-active]="section === 'accounts' && accountTab === 'entries'" [class.invoices-active]="record.cardType === 'CREDITO' && cardTab === 'invoices'" [class.card-credit-detail]="record.cardType === 'CREDITO'" [class.card-debit-detail]="record.cardType === 'DEBITO'" [class.card-voucher-detail]="record.cardType === 'VOUCHER'">
+      @if (loading) { <div class="resource-loading detail-resource-loading" [class.resource-loading-active]="loadingActive" role="status" aria-live="polite"><span class="material-symbols-outlined">rocket_launch</span></div> }
       @if (section === 'accounts') {
         <div class="domain-header"><span class="domain-icon material-symbols-outlined">account_balance</span><div><span class="domain-kicker">CONTA BANCÁRIA</span><h2>{{ record.title }}</h2></div></div>
         <div class="domain-tabs" role="tablist"><button [class.active]="accountTab === 'overview'" (click)="accountTabChange.emit('overview')">Visão geral</button><button [class.active]="accountTab === 'movements'" (click)="accountTabChange.emit('movements')">Movimentações</button><button [class.active]="accountTab === 'entries'" (click)="accountTabChange.emit('entries')">Lançamentos</button></div>
@@ -20,6 +20,23 @@ import { AccountTab, CardTab, FinanceRecord, SectionKey } from "../../core/model
           <section class="domain-section"><div class="domain-section-heading"><span class="material-symbols-outlined">swap_vert</span><strong>Movimentações</strong></div><div class="domain-list">@for (movement of record.movements ?? []; track movement.title + movement.date) { <div class="domain-list-row"><span class="material-symbols-outlined">{{ movement.type === 'income' ? 'south_west' : 'north_east' }}</span><div><strong>{{ movement.title }}</strong><small>{{ movement.category }} · {{ date(movement.date) }}</small></div><b>{{ money(movement.amount) }}</b></div> } @empty { <div class="domain-empty">Nenhuma movimentação disponível para este período.</div> }</div></section>
         } @else {
           <section class="domain-section"><div class="domain-section-heading"><span class="material-symbols-outlined">receipt_long</span><strong>Lançamentos</strong></div><div class="domain-list">@for (movement of record.movements ?? []; track movement.title + movement.date) { <div class="domain-list-row"><span class="material-symbols-outlined">receipt_long</span><div><strong>{{ movement.title }}</strong><small>{{ movement.category }} · {{ date(movement.date) }}</small></div><b>{{ money(movement.amount) }}</b></div> } @empty { <div class="domain-empty">Nenhum lançamento disponível para este período.</div> }</div></section>
+        }
+        @if (section === 'accounts' && accountTab === 'entries') {
+          <section class="domain-section entries-query-section">
+            <div class="entry-period-form">
+              <label>Data inicial *<input type="date" [value]="entryPeriod.from" (change)="entryDateChange('from', $event)" /></label>
+              <label>Data final *<input type="date" [value]="entryPeriod.to" (change)="entryDateChange('to', $event)" /></label>
+              <button type="button" class="entry-search-button" (click)="entrySearch.emit()" [disabled]="loadingActive">
+                <span class="material-symbols-outlined">search</span>CONSULTAR LANÇAMENTOS
+              </button>
+            </div>
+            <div class="domain-section-heading"><span class="material-symbols-outlined">receipt_long</span><strong>Lançamentos</strong></div>
+            <div class="domain-list">
+              @for (movement of record.movements ?? []; track movement.title + movement.date) {
+                <div class="domain-list-row"><span class="material-symbols-outlined">receipt_long</span><div><strong>{{ movement.title }}</strong><small>{{ movement.category }} - {{ date(movement.date) }}</small></div><b>{{ money(movement.amount) }}</b></div>
+              } @empty { <div class="domain-empty">Nenhum lançamento disponível para este período.</div> }
+            </div>
+          </section>
         }
       } @else if (section === 'cards' || section === 'cardCredit' || section === 'cardDebit' || section === 'cardVoucher') {
         <div class="domain-header"><span class="domain-icon material-symbols-outlined">credit_card</span><div><span class="domain-kicker">{{ cardType(record.cardType) }}</span><h2>{{ record.title }}</h2></div></div>
@@ -31,6 +48,7 @@ import { AccountTab, CardTab, FinanceRecord, SectionKey } from "../../core/model
         @if (record.cardType === 'CREDITO' && cardTab === 'invoices') { <div class="invoice-month-picker standalone-month-picker"><strong>Filtro</strong><label><select [value]="invoiceMonthValue()" (change)="changeInvoiceMonthPart('month', $event)" aria-label="Selecionar mês">@for (month of invoiceMonths; track month.value) { <option [value]="month.value">{{ month.label }}</option> }</select></label><span class="invoice-period-separator">/</span><label><select [value]="invoiceYearValue()" (change)="changeInvoiceMonthPart('year', $event)" aria-label="Selecionar ano">@for (year of invoiceYears; track year) { <option [value]="year">{{ year }}</option> }</select></label></div> }
       } @else if (section === 'investments') {
         <div class="domain-header"><span class="domain-icon material-symbols-outlined">monitoring</span><div><span class="domain-kicker">INVESTIMENTO</span><h2>{{ record.title }}</h2></div></div>
+        <div class="card-detail-section-heading"><span class="material-symbols-outlined">monitoring</span><strong>Resumo do investimento</strong></div>
         <div class="domain-metrics"><div><span>VALOR INICIAL</span><strong>{{ money(record.initialAmount) }}</strong></div><div><span>VALOR CORRENTE</span><strong>{{ money(record.currentAmount) }}</strong></div><div><span>VARIAÇÃO</span><strong>{{ money(difference(record.currentAmount, record.initialAmount)) }}</strong></div></div>
         <div class="domain-fields"><div><span>INÍCIO</span><strong>{{ date(record.date) }}</strong></div><div><span>JUROS AO MÊS</span><strong>{{ percent(record.interestRate) }}</strong></div></div>
       } @else if (section === 'goals') {
@@ -59,9 +77,17 @@ export class FinanceRecordDetailComponent {
   @Input() loading = false;
   @Input() loadingActive = false;
   @Input() invoices: FinanceRecord[] = [];
+  @Input() entryPeriod: { from: string; to: string } = { from: "", to: "" };
   @Input() invoiceMonth = "";
   @Output() readonly cardTabChange = new EventEmitter<CardTab>();
   @Output() readonly invoiceMonthChange = new EventEmitter<string>();
+  @Output() readonly entrySearch = new EventEmitter<void>();
+  @Output() readonly entryPeriodChange = new EventEmitter<{ from: string; to: string }>();
+
+	entryDateChange(field: "from" | "to", event: Event): void {
+		const value = (event.target as HTMLInputElement).value;
+		this.entryPeriodChange.emit({ ...this.entryPeriod, [field]: value });
+	}
 
 	invoiceMonthValue(): string { return this.invoiceMonth.slice(5, 7); }
 	invoiceYearValue(): string { return this.invoiceMonth.slice(0, 4); }

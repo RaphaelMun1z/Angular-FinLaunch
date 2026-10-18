@@ -3,7 +3,7 @@ import { patchState, signalStore, withComputed, withMethods, withState } from "@
 import { forkJoin, Observable, of } from "rxjs";
 import { catchError, map, switchMap } from "rxjs/operators";
 import { FinanceApiService } from "../api/finance-api.service";
-import { BankAccountRequest, BankAccountResponse, BudgetRequest, CardRequest, CardResponse, CategoryRequest, CategoryResponse, GoalResponse, InvestmentResponse, MovementRequest, PeriodRequest } from "../api/api.models";
+import { BankAccountRequest, BankAccountResponse, BudgetRequest, CardRequest, CardResponse, CategoryRequest, CategoryResponse, GoalResponse, InvestmentRequest, InvestmentResponse, MovementRequest, PeriodRequest } from "../api/api.models";
 import { toUserError } from "../http/http-error.util";
 import { initialState } from "../models/finance.data";
 import { FinanceRecord, FinanceState, Filters, Movement, OverviewSelection, SectionKey } from "../models/finance.models";
@@ -25,29 +25,93 @@ export const FinanceStore = signalStore(
         .sort((a, b) => filters.sort === "oldest" ? (a.date ?? "").localeCompare(b.date ?? "") : filters.sort === "higher" ? (b.amount ?? 0) - (a.amount ?? 0) : filters.sort === "lower" ? (a.amount ?? 0) - (b.amount ?? 0) : filters.sort === "az" ? a.title.localeCompare(b.title, "pt-BR") : (b.date ?? "").localeCompare(a.date ?? ""));
     }),
   })),
-  withMethods((store, api = inject(FinanceApiService)) => ({
-    loadFromApi(): void {
+  withMethods((store, api = inject(FinanceApiService)) => {
+    const loadedSections = new Set<SectionKey>();
+    const loadSection = (section: SectionKey, force = false): void => {
+      if (!force && loadedSections.has(section)) return;
+      if (section === "overview" || section === "transactions" || section === "statements" || section === "budgets" || section === "invoices") return;
       patchState(store, { loading: true, error: null });
-      forkJoin({ accounts: api.listAccounts(), categories: api.listCategories(), investments: api.listInvestments(), goals: api.listGoals() })
-        .pipe(switchMap((data) => {
-          const accountIds = data.accounts.map((account) => account.id).filter((id): id is string => id !== undefined);
-          if (!accountIds.length) return of({ ...data, cards: [] as CardResponse[] });
-          return forkJoin(
-            accountIds.map((accountId) => api.listCards(accountId).pipe(
-              map((cards) => cards.map((card) => ({ ...card, contaBancariaId: card.contaBancariaId ?? accountId }))),
-            )),
-          ).pipe(map((cardGroups) => ({ ...data, cards: cardGroups.reduce((cards, group) => cards.concat(group), [] as CardResponse[]) })));
-        }))
-        .pipe(map((data) => ({ sections: mapApiSections(data.accounts, data.cards, data.categories, data.investments, data.goals) })), catchError((error: unknown) => { patchState(store, { sections: emptySections(), loading: false, error: toUserError(error) }); return of(null); }))
-        .subscribe((data) => { if (data) patchState(store, { sections: data.sections, loading: false, error: null }); });
-    },
+      const update = (records: FinanceRecord[]): void => {
+        patchState(store, { sections: { ...store.sections(), [section]: { ...store.sections()[section], records } }, loading: false, error: null });
+        loadedSections.add(section);
+      };
+      const fail = (error: unknown): void => patchState(store, { loading: false, error: toUserError(error) });
+      if (section === "accounts") {
+        api.listAccounts().pipe(map((items) => items.map(mapAccountRecord).filter((record): record is FinanceRecord => record !== null))).subscribe({ next: update, error: fail });
+        return;
+      }
+      if (section === "categories") {
+        api.listCategories().pipe(map(mapCategoryRecords)).subscribe({ next: update, error: fail });
+        return;
+      }
+      if (section === "investments") {
+        api.listInvestments().pipe(map((items) => items.filter((item) => item.id !== undefined && item.categoria !== undefined).map((item) => ({ id: item.id!, apiId: item.id!, title: item.categoria!, category: "Investimento", amount: item.valorCorrente ?? item.valorInicial, initialAmount: item.valorInicial, currentAmount: item.valorCorrente, interestRate: item.jurosAoMes, date: item.dataInicio ?? "", type: "income" as const })))).subscribe({ next: update, error: fail });
+        return;
+      }
+      if (section === "goals") {
+        api.listGoals().pipe(map((items) => items.filter((item) => item.id !== undefined && item.objetivo !== undefined && item.valorAlvo !== undefined && item.dataConclusaoPrevista !== undefined).map((item) => ({ id: item.id!, apiId: item.id!, title: item.objetivo!, category: "Meta financeira", amount: item.valorAlvo!, targetAmount: item.valorAlvo, accumulatedAmount: item.valorAcumulado, dueDate: item.dataConclusaoPrevista, date: item.dataConclusaoPrevista!, type: "income" as const })))).subscribe({ next: update, error: fail });
+        return;
+      }
+      const loadCards = (accounts: BankAccountResponse[]): void => {
+        const accountIds = accounts.map((account) => account.id).filter((id): id is string => id !== undefined);
+        const accountRecords = accounts.map(mapAccountRecord).filter((record): record is FinanceRecord => record !== null);
+        if (accountRecords.length) {
+          patchState(store, { sections: { ...store.sections(), accounts: { ...store.sections().accounts, records: accountRecords } } });
+          loadedSections.add("accounts");
+        }
+        if (!accountIds.length) { update([]); return; }
+        forkJoin(accountIds.map((accountId) => api.listCards(accountId).pipe(map((cards) => cards.map((card) => ({ ...card, contaBancariaId: card.contaBancariaId ?? accountId })))))).pipe(
+          map((groups) => groups.reduce((cards, group) => cards.concat(group), [] as CardResponse[])),
+          map(mapCardRecords),
+        ).subscribe({ next: (records) => {
+          const cardRecords = records;
+          const selectedRecords = section === "cardCredit" ? cardRecords.filter((record) => record.category === "CREDITO") : section === "cardDebit" ? cardRecords.filter((record) => record.category === "DEBITO") : section === "cardVoucher" ? cardRecords.filter((record) => record.category === "VOUCHER") : cardRecords;
+          patchState(store, { sections: { ...store.sections(), cards: { ...store.sections().cards, records: cardRecords }, cardCredit: { ...store.sections().cardCredit, records: cardRecords.filter((record) => record.category === "CREDITO") }, cardDebit: { ...store.sections().cardDebit, records: cardRecords.filter((record) => record.category === "DEBITO") }, cardVoucher: { ...store.sections().cardVoucher, records: cardRecords.filter((record) => record.category === "VOUCHER") }, [section]: { ...store.sections()[section], records: selectedRecords }, }, loading: false, error: null });
+          loadedSections.add("cards");
+          loadedSections.add("cardCredit");
+          loadedSections.add("cardDebit");
+          loadedSections.add("cardVoucher");
+        }, error: fail });
+      };
+      const accounts = store.sections().accounts.records;
+      if (accounts.length) loadCards(accounts.map((account) => ({ id: account.apiId, nomeDoBanco: account.title, creditoTotal: account.creditTotal ?? 0, saldoCorrente: account.balance })));
+      else api.listAccounts().subscribe({ next: loadCards, error: fail });
+    };
+    return {
+    loadFromApi(force = false): void { loadSection(store.active(), force); },
+    loadSection,
     loadAccountMovements(accountId: string, period: PeriodRequest): void {
+      if (!period.dataInicial || !period.dataFinal) {
+        patchState(store, { loading: false, error: "Informe a data inicial e a data final para consultar as movimentações." });
+        return;
+      }
       patchState(store, { loading: true, error: null });
       api.listMovements(accountId, period).subscribe({
         next: (items) => {
           const movements: Movement[] = items.filter((item) => item.descricao !== undefined && item.categoriaId !== undefined && item.valorTotal !== undefined && item.dataLancamento !== undefined).map((item) => ({ title: item.descricao!, category: item.categoriaId!, amount: item.valorTotal!, date: item.dataLancamento!, type: item.valorTotal! >= 0 ? "income" : "expense" }));
+          const statementRecords: FinanceRecord[] = items.filter((item) => item.valorTotal !== undefined && item.dataLancamento !== undefined).map((item, index) => ({ id: item.id ?? `${accountId}-${item.dataLancamento}-${index}`, apiId: item.id, title: item.descricao?.trim() || "Movimentação", category: item.categoriaId ?? "", amount: item.valorTotal!, date: item.dataLancamento!, type: item.valorTotal! >= 0 ? "income" as const : "expense" as const, method: item.metodoPagamento, recurring: item.ehRecorrente, installments: item.qntParcelas, notes: item.descricao }));
           const records = store.sections().accounts.records.map((record) => record.apiId === accountId ? { ...record, movements } : record);
-          patchState(store, { sections: { ...store.sections(), accounts: { ...store.sections().accounts, records } }, loading: false, error: null });
+          patchState(store, { sections: { ...store.sections(), accounts: { ...store.sections().accounts, records }, statements: { ...store.sections().statements, records: statementRecords } }, loading: false, error: null });
+        },
+        error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
+      });
+    },
+    loadTransactions(accountId: string, period: PeriodRequest): void {
+      patchState(store, { loading: true, error: null });
+      api.listEntries(accountId, period).subscribe({
+        next: (items) => {
+          const records: FinanceRecord[] = items
+            .filter((item) => item.valor !== undefined && item.dataLancamento !== undefined)
+            .map((item, index) => ({
+              id: `${accountId}-${item.dataLancamento}-${index}`,
+              title: item.descricao?.trim() || "Lancamento",
+              category: "Lancamento",
+              amount: item.valor!,
+              date: item.dataLancamento!,
+              type: "expense" as const,
+              notes: item.descricao,
+            }));
+          patchState(store, { sections: { ...store.sections(), transactions: { ...store.sections().transactions, records } }, loading: false, error: null });
         },
         error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
       });
@@ -85,7 +149,7 @@ export const FinanceStore = signalStore(
     },
     navigate(active: SectionKey): void { patchState(store, { active, selectedId: null, query: "", accountTab: "overview", cardTab: "overview", categoryTab: "overview", editingId: null }); },
     setActiveAccountId(activeAccountId: string | null): void { patchState(store, { activeAccountId }); },
-    resetSession(): void { patchState(store, { ...initialState, sections: initialState.sections }); },
+    resetSession(): void { loadedSections.clear(); patchState(store, { ...initialState, sections: initialState.sections }); },
     clearError(): void { patchState(store, { error: null }); },
     selectRecord(selectedId: string | null): void { patchState(store, { selectedId }); },
     setQuery(query: string): void { patchState(store, { query }); },
@@ -97,10 +161,11 @@ export const FinanceStore = signalStore(
     startEditing(editingId: string | null): void { patchState(store, { editingId }); },
     createCategory(values: CategoryRequest): Observable<boolean> {
       return api.createCategory(values).pipe(
-        map(() => {
-          api.listCategories().subscribe({
-            next: (items) => patchState(store, { sections: { ...store.sections(), categories: { ...store.sections().categories, records: mapCategoryRecords(items) } }, error: null }),
-          });
+        map((created) => {
+          const record = mapCategoryRecords([created])[0];
+          if (!record) { patchState(store, { error: "A categoria foi salva, mas a API não retornou os dados necessários para atualizar a listagem." }); return false; }
+          patchState(store, { sections: { ...store.sections(), categories: { ...store.sections().categories, records: [...store.sections().categories.records, record] } }, error: null });
+          loadedSections.add("categories");
           return true;
         }),
         catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(false); }),
@@ -131,11 +196,14 @@ export const FinanceStore = signalStore(
     },
     createCard(values: CardRequest): Observable<boolean> {
       return api.createCard(values).pipe(
-        map(() => {
-          api.listCards(values.contaBancariaId).subscribe({
-            next: (items) => patchState(store, { sections: mapCardsInAccountSections(items, values.contaBancariaId, store.sections()), error: null }),
-            error: (error: unknown) => patchState(store, { error: toUserError(error) }),
-          });
+        map((created) => {
+          const record = mapCardRecords([{ ...created, contaBancariaId: created.contaBancariaId ?? values.contaBancariaId }])[0];
+          if (!record) { patchState(store, { error: "O cartão foi salvo, mas a API não retornou os dados necessários para atualizar a listagem." }); return false; }
+          patchState(store, { sections: mapCardsInAccountSections([{ ...created, contaBancariaId: created.contaBancariaId ?? values.contaBancariaId }], store.sections()), error: null });
+          loadedSections.add("cards");
+          loadedSections.add("cardCredit");
+          loadedSections.add("cardDebit");
+          loadedSections.add("cardVoucher");
           return true;
         }),
         catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(false); }),
@@ -147,6 +215,21 @@ export const FinanceStore = signalStore(
         catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(false); }),
       );
     },
+    createInvestment(values: InvestmentRequest): Observable<boolean> {
+      return api.createInvestment(values).pipe(
+        map((created) => {
+          if (created.id === undefined || created.categoria === undefined) {
+            patchState(store, { error: "O investimento foi salvo, mas a API não retornou os dados necessários para atualizar a listagem." });
+            return false;
+          }
+          const record: FinanceRecord = { id: created.id, apiId: created.id, title: created.categoria, category: "Investimento", amount: created.valorCorrente ?? created.valorInicial, initialAmount: created.valorInicial, currentAmount: created.valorCorrente, interestRate: created.jurosAoMes, date: created.dataInicio ?? "", type: "income" };
+          patchState(store, { sections: { ...store.sections(), investments: { ...store.sections().investments, records: [...store.sections().investments.records, record] } }, error: null });
+          loadedSections.add("investments");
+          return true;
+        }),
+        catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(false); }),
+      );
+    },
     createMovement(accountId: string, values: MovementRequest): Observable<boolean> {
       return api.createMovement(accountId, values).pipe(
         map(() => { return true; }),
@@ -155,7 +238,7 @@ export const FinanceStore = signalStore(
     },
     saveRecord(values: Omit<FinanceRecord, "id" | "type" | "status" | "method">): void {
       const active = store.active();
-      const refresh = (): void => (store as unknown as { loadFromApi: () => void }).loadFromApi();
+      const refresh = (): void => (store as unknown as { loadFromApi: (force?: boolean) => void }).loadFromApi(true);
       if (active === "goals" && values.amount !== undefined && values.date) {
         api.createGoal({ objetivo: values.title, valorAlvo: values.amount, dataConclusaoPrevista: values.date }).subscribe({ next: refresh, error: (error: unknown) => patchState(store, { error: toUserError(error) }) });
         return;
@@ -163,7 +246,8 @@ export const FinanceStore = signalStore(
       patchState(store, { error: "Esta operação não está disponível porque os campos exigidos pelo endpoint não foram fornecidos." });
     },
     deleteSelected(): void { if (store.selectedId() !== null && store.active() !== "overview") patchState(store, { error: "A API documentada não disponibiliza endpoint de exclusão para este recurso." }); },
-  })),
+    };
+  }),
 );
 
 function mapApiSections(accounts: BankAccountResponse[], cards: CardResponse[], categories: CategoryResponse[], investments: InvestmentResponse[], goals: GoalResponse[]): FinanceState["sections"] {
@@ -186,8 +270,10 @@ function mapCardsInSections(cards: CardResponse[], current: FinanceState["sectio
   return { ...current, cards: { ...current.cards, records: cardRecords }, cardCredit: { ...current.cardCredit, records: cardRecords.filter((record) => record.category === "CREDITO") }, cardDebit: { ...current.cardDebit, records: cardRecords.filter((record) => record.category === "DEBITO") }, cardVoucher: { ...current.cardVoucher, records: cardRecords.filter((record) => record.category === "VOUCHER") } };
 }
 
-function mapCardsInAccountSections(cards: CardResponse[], accountId: string, current: FinanceState["sections"]): FinanceState["sections"] {
-  const cardRecords = [...current.cards.records.filter((record) => record.accountId !== accountId), ...mapCardRecords(cards)];
+function mapCardsInAccountSections(cards: CardResponse[], current: FinanceState["sections"]): FinanceState["sections"] {
+  const newRecords = mapCardRecords(cards);
+  const newIds = new Set(newRecords.map((record) => record.id));
+  const cardRecords = [...current.cards.records.filter((record) => !newIds.has(record.id)), ...newRecords];
   return { ...current, cards: { ...current.cards, records: cardRecords }, cardCredit: { ...current.cardCredit, records: cardRecords.filter((record) => record.category === "CREDITO") }, cardDebit: { ...current.cardDebit, records: cardRecords.filter((record) => record.category === "DEBITO") }, cardVoucher: { ...current.cardVoucher, records: cardRecords.filter((record) => record.category === "VOUCHER") } };
 }
 

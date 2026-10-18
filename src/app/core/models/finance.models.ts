@@ -3,6 +3,7 @@ export type SectionKey =
   | "overview"
   | "transactions"
   | "accounts"
+  | "statements"
   | "cards"
   | "cardCredit"
   | "cardDebit"
@@ -60,6 +61,8 @@ export interface FinanceRecord {
   date?: string;
   type: RecordType;
   method?: string;
+  recurring?: boolean;
+  installments?: number | null;
   icon?: string;
   color?: string;
   account?: string;
