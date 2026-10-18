@@ -1,5 +1,5 @@
 import { Injectable, inject } from "@angular/core";
-import { HttpClient } from "@angular/common/http";
+import { HttpClient, HttpParams } from "@angular/common/http";
 import { Observable } from "rxjs";
 import { map } from "rxjs/operators";
 import {
@@ -46,11 +46,12 @@ export class FinanceApiService {
     );
   }
 
-  listCards(): Observable<CardResponse[]> { return this.http.get<CardResponse[]>(`${this.baseUrl}/cartoes`); }
+  listCards(accountId: string): Observable<CardResponse[]> { return this.http.get<CardResponse[]>(`${this.baseUrl}/cartoes/${encodeURIComponent(accountId)}`); }
   createCard(body: CardRequest): Observable<CardResponse> { return this.http.post<CardResponse>(`${this.baseUrl}/cartoes`, body); }
   listInvoices(cardId: string, period: PeriodRequest): Observable<InvoiceResponse[]> { return this.periodGet<InvoiceResponse[]>(`/cartoes/${encodeURIComponent(cardId)}/faturas`, period); }
 
-  private periodGet<T>(path: string, body: PeriodRequest): Observable<T> {
-    return this.http.request<T>("GET", `${this.baseUrl}${path}`, { body });
+  private periodGet<T>(path: string, period: PeriodRequest): Observable<T> {
+    const params = new HttpParams().set("dataInicial", period.dataInicial).set("dataFinal", period.dataFinal);
+    return this.http.get<T>(`${this.baseUrl}${path}`, { params });
   }
 }

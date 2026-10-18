@@ -15,7 +15,7 @@ import { MonthlyLineChartComponent } from "../../shared/components/monthly-line-
 import { FinanceRecordDetailComponent } from "./finance-record-detail.component";
 import { FinanceStore } from "../../core/store/finance.store";
 import { AuthService } from "../../core/auth/auth.service";
-import { BudgetRequest, CategoryType, MovementMethod, MovementRequest } from "../../core/api/api.models";
+import { BudgetRequest, CardRequest, CategoryType, MovementMethod, MovementRequest } from "../../core/api/api.models";
 import { navigation } from "../../core/models/finance.data";
 import {
 	CategoryTab,
@@ -158,12 +158,14 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 				<main
 					class="content"
 					[class.overview-layout]="active() === 'overview'"
+					[class.form-layout]="categoryFormOpen() || accountFormOpen() || cardFormOpen() || budgetFormOpen()"
 				>
 					<section
 						class="list-panel"
 						[class.calendar-mode]="active() === 'overview'"
 						[class.categories-mode]="active() === 'categories'"
 						[class.accounts-mode]="active() === 'accounts'"
+						[class.cards-mode]="cardSectionActive()"
 					>
 						@if (active() === "overview") {
 							<app-calendar-view
@@ -175,13 +177,13 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 								<div>
 									<h1>{{ activeSection().title }}</h1>
 								</div>
-				@if (active() === "categories" || active() === "accounts") {
+				@if (active() === "categories" || active() === "accounts" || cardSectionActive()) {
 									<button
 										class="new-instance-icon"
 										type="button"
 										[title]="active() === 'categories' ? 'Nova categoria' : 'Nova conta bancária'"
 										[attr.aria-label]="active() === 'categories' ? 'Nova categoria' : 'Nova conta bancária'"
-										(click)="active() === 'categories' ? openCategoryForm() : openAccountForm()"
+						(click)="active() === 'categories' ? openCategoryForm() : active() === 'accounts' ? openAccountForm() : openCardForm()"
 									>
 										<span class="material-symbols-outlined"
 											>add</span
@@ -210,13 +212,21 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 									/>
 								</div>
 								@if (active() !== "categories") {
-									<button class="filter-btn" title="Filtros">
+									<button class="filter-btn" title="Filtros" (click)="toggleCardTypeFilter()">
 										<span class="material-symbols-outlined"
 											>tune</span
 										>
 									</button>
 								}
 							</div>
+							@if (cardSectionActive() && cardTypeFilterOpen()) {
+								<div class="card-type-filter" role="group" aria-label="Filtrar por tipo de cartão">
+					<span class="card-type-filter-heading">TIPO DE CARTÃO</span>
+									@for (type of cardTypes; track type.value) {
+										<button type="button" [class.selected]="selectedCardTypes().has(type.value)" (click)="toggleCardType(type.value)"><span class="material-symbols-outlined">{{ type.icon }}</span><span>{{ type.label }}</span><span class="material-symbols-outlined card-type-filter-check">{{ selectedCardTypes().has(type.value) ? 'check' : '' }}</span></button>
+									}
+								</div>
+							}
 							<div class="list-caption">
 								<span>{{
 									active() === "transactions"
@@ -239,7 +249,7 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 									>
 										<span
 											class="record-icon"
-										[class.material-symbols-outlined]="active() === 'accounts'"
+										[class.material-symbols-outlined]="active() === 'accounts' || cardSectionActive()"
 											[class.income]="
 												record.type === 'income'
 											"
@@ -611,6 +621,34 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 								</form>
 							</div>
 						}
+						@if (cardSectionActive() && cardFormOpen()) {
+							<div class="category-form-panel">
+								<div class="category-form-heading"><div><h2>Novo cartão</h2></div><button type="button" class="category-form-close" aria-label="Fechar formulário" (click)="closeCardForm()"><span class="material-symbols-outlined">close</span></button></div>
+								<form class="category-form card-form" [formGroup]="cardForm" (ngSubmit)="saveCard()">
+									<fieldset class="card-type-fieldset"><legend>Tipo</legend><div class="card-type-options"><button type="button" [class.selected]="cardForm.controls.type.value === 'CREDITO'" (click)="selectCardType('CREDITO')"><span class="material-symbols-outlined">credit_score</span>Crédito</button><button type="button" [class.selected]="cardForm.controls.type.value === 'DEBITO'" (click)="selectCardType('DEBITO')"><span class="material-symbols-outlined">payments</span>Débito</button><button type="button" [class.selected]="cardForm.controls.type.value === 'VOUCHER'" (click)="selectCardType('VOUCHER')"><span class="material-symbols-outlined">confirmation_number</span>Voucher</button></div></fieldset>
+									<div class="card-account-readonly"><span class="card-account-readonly-label">Conta bancária</span><div><span class="card-account-icon material-symbols-outlined">account_balance</span><strong>{{ activeAccountTitle() }}</strong><span class="material-symbols-outlined">lock</span></div></div>
+									<fieldset class="card-account-fieldset"><legend>Conta bancária</legend><div class="card-account-options">@for (account of movementAccounts(); track account.apiId) { <button type="button" [class.selected]="cardForm.controls.accountId.value === account.apiId" (click)="selectCardAccount(account.apiId)"><span class="card-account-icon material-symbols-outlined">account_balance</span><span><strong>{{ account.title }}</strong><small>Conta bancária</small></span><span class="material-symbols-outlined card-option-check">{{ cardForm.controls.accountId.value === account.apiId ? 'check' : '' }}</span></button> } @empty { <span class="card-account-empty">Nenhuma conta bancária disponível.</span> }</div></fieldset>
+									<div class="category-form-grid card-main-fields">
+										<label>Apelido<input formControlName="nickname" maxlength="80" autocomplete="off" placeholder="Ex.: Cartão principal" /></label>
+										<label>Tipo<select formControlName="type"><option value="">Selecione o tipo</option><option value="CREDITO">Crédito</option><option value="DEBITO">Débito</option><option value="VOUCHER">Voucher</option></select></label>
+										<label>Conta bancária<select formControlName="accountId"><option value="">Selecione uma conta</option>@for (account of movementAccounts(); track account.apiId) { <option [value]="account.apiId">{{ account.title }}</option> }</select></label>
+									</div>
+									@if (cardForm.controls.type.value === 'CREDITO') {
+										<div class="card-specific-divider"></div>
+										<div class="card-specific-fields"><label class="card-money-field">Limite de crédito<input type="text" inputmode="decimal" autocomplete="off" [value]="cardForm.controls.creditLimit.value" placeholder="R$ 0,00" (input)="formatCardMoney($event, 'creditLimit')" /></label><fieldset class="card-day-fieldset"><legend>Dia de fechamento</legend><div class="card-day-options">@for (day of cardDays; track day) { <button type="button" [class.selected]="cardForm.controls.closingDay.value === day" (click)="selectCardDay('closingDay', day)">{{ day }}</button> }</div></fieldset><fieldset class="card-day-fieldset"><legend>Dia de vencimento</legend><div class="card-day-options">@for (day of cardDays; track day) { <button type="button" [class.selected]="cardForm.controls.dueDay.value === day" (click)="selectCardDay('dueDay', day)">{{ day }}</button> }</div></fieldset></div>
+										<div class="category-form-grid"><label>Limite de crédito<input type="number" formControlName="creditLimit" min="0.01" step="0.01" inputmode="decimal" /></label><label>Dia de fechamento<input type="number" formControlName="closingDay" min="1" max="31" step="1" /></label><label>Dia de vencimento<input type="number" formControlName="dueDay" min="1" max="31" step="1" /></label></div>
+									}
+									@if (cardForm.controls.type.value === 'VOUCHER') {
+										<div class="card-specific-fields"><label class="card-money-field">Valor da recarga<input type="text" inputmode="decimal" autocomplete="off" [value]="cardForm.controls.rechargeAmount.value" placeholder="R$ 0,00" (input)="formatCardMoney($event, 'rechargeAmount')" /></label><fieldset class="card-day-fieldset"><legend>Dia da recarga</legend><div class="card-day-options">@for (day of cardDays; track day) { <button type="button" [class.selected]="cardForm.controls.rechargeDay.value === day" (click)="selectCardDay('rechargeDay', day)">{{ day }}</button> }</div></fieldset></div>
+										<div class="card-specific-divider"></div>
+										<fieldset class="card-voucher-fieldset"><legend>Tipo de voucher</legend><div class="card-voucher-options"><button type="button" [class.selected]="cardForm.controls.voucherType.value === 'VA_VR'" (click)="selectCardVoucherType('VA_VR')">VA / VR</button><button type="button" [class.selected]="cardForm.controls.voucherType.value === 'CREDITO_VOUNCHER'" (click)="selectCardVoucherType('CREDITO_VOUNCHER')">Crédito voucher</button></div></fieldset>
+										<div class="category-form-grid"><label>Tipo de voucher<select formControlName="voucherType"><option value="VA_VR">VA / VR</option><option value="CREDITO_VOUNCHER">Crédito voucher</option></select></label><label>Valor da recarga<input type="number" formControlName="rechargeAmount" min="0.01" step="0.01" inputmode="decimal" /></label><label>Dia da recarga<input type="number" formControlName="rechargeDay" min="1" max="31" step="1" /></label></div>
+									}
+									@if (cardForm.controls.nickname.touched && cardForm.controls.nickname.invalid) { <small class="field-error">Informe o apelido do cartão.</small> } @if (cardForm.controls.accountId.touched && cardForm.controls.accountId.invalid) { <small class="field-error">Selecione uma conta bancária.</small> } @if (cardForm.controls.type.touched && cardForm.controls.type.invalid) { <small class="field-error">Selecione o tipo do cartão.</small> } @if (store.error(); as error) { <div class="form-error">{{ error }}</div> }
+									<div class="category-form-actions"><button type="button" class="secondary-btn" (click)="closeCardForm()"><span class="material-symbols-outlined">close</span>CANCELAR</button><button type="submit" class="primary-btn" [disabled]="cardForm.invalid || cardSaving()"><span class="material-symbols-outlined">save</span>{{ cardSaving() ? "SALVANDO..." : "SALVAR CARTÃO" }}</button></div>
+								</form>
+							</div>
+						}
 						@if (selectedRecord(); as record) {
 							@if (active() !== "categories") {
 								<app-finance-record-detail
@@ -618,6 +656,9 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 									[record]="record"
 									[accountTab]="store.accountTab()"
 									(accountTabChange)="setAccountTab($event)"
+									[cardTab]="store.cardTab()"
+									[invoices]="store.sections().invoices.records"
+									(cardTabChange)="setCardTab($event)"
 								/>
 							}
 							@if (active() === "categories") {
@@ -1308,7 +1349,19 @@ export class FinanceShellComponent {
 	readonly active = this.store.active;
 	readonly activeSection = this.store.activeSection;
 	readonly selectedRecord = this.store.selectedRecord;
-	readonly filteredRecords = this.store.filteredRecords;
+	readonly cardTypes = [
+		{ value: "CREDITO", label: "Crédito", icon: "credit_score" },
+		{ value: "DEBITO", label: "Débito", icon: "payments" },
+		{ value: "VOUCHER", label: "Voucher", icon: "confirmation_number" },
+	] as const;
+	readonly selectedCardTypes = signal<Set<string>>(new Set(this.cardTypes.map((type) => type.value)));
+	readonly cardTypeFilterOpen = signal(true);
+	readonly filteredRecords = computed(() => {
+		const records = this.store.filteredRecords();
+		if (!this.cardSectionActive()) return records;
+		const selected = this.selectedCardTypes();
+		return records.filter((record) => selected.has(record.category));
+	});
 	readonly categoryBudgets = computed(() => {
 		const category = this.selectedRecord();
 		return category
@@ -1365,6 +1418,9 @@ export class FinanceShellComponent {
 	readonly categorySaving = signal(false);
 	readonly accountFormOpen = signal(false);
 	readonly accountSaving = signal(false);
+	readonly cardFormOpen = signal(false);
+	readonly cardSaving = signal(false);
+	readonly cardDays = Array.from({ length: 31 }, (_, index) => index + 1);
 	readonly budgetFormOpen = signal(false);
 	readonly budgetSaving = signal(false);
 	readonly movementAsideOpen = signal(false);
@@ -1419,6 +1475,17 @@ export class FinanceShellComponent {
 		bankName: this.fb.nonNullable.control("", [Validators.required, Validators.maxLength(100)]),
 		creditTotal: this.fb.nonNullable.control(0, [Validators.required, Validators.min(0)]),
 		currentBalance: this.fb.nonNullable.control(0, [Validators.required]),
+	});
+	readonly cardForm = this.fb.group({
+		nickname: this.fb.nonNullable.control("", [Validators.required, Validators.maxLength(80)]),
+		type: this.fb.nonNullable.control("", Validators.required),
+		accountId: this.fb.nonNullable.control("", Validators.required),
+		creditLimit: this.fb.nonNullable.control(""),
+		closingDay: this.fb.control<number | null>(null),
+		dueDay: this.fb.control<number | null>(null),
+		voucherType: this.fb.nonNullable.control("VA_VR"),
+		rechargeAmount: this.fb.nonNullable.control(""),
+		rechargeDay: this.fb.control<number | null>(null),
 	});
 	readonly budgetForm = this.fb.group({
 		limit: this.fb.control<number | null>(null, [Validators.required, Validators.min(0.01)]),
@@ -1495,10 +1562,12 @@ export class FinanceShellComponent {
 	filterNavigation(items: NavItem[], accountSelected: boolean): NavItem[] {
 		return items
 			.filter((item) => accountSelected || !this.isAccountDependent(item.key))
+			.map((item) => item.key === "cards" ? { ...item, children: undefined } : item)
 			.map((item) => item.children ? { ...item, children: this.filterNavigation(item.children, accountSelected) } : item)
 			.filter((item) => !item.children || item.children.length > 0);
 	}
 	isAccountDependent(section: SectionKey): boolean { return this.accountDependentSections.has(section); }
+	cardSectionActive(): boolean { return ["cards", "cardCredit", "cardDebit", "cardVoucher"].includes(this.active()); }
 	isSection(value: string): value is SectionKey {
 		return Object.prototype.hasOwnProperty.call(
 			this.store.sections(),
@@ -1515,6 +1584,7 @@ export class FinanceShellComponent {
 		if (this.activeAccountId() === null && this.isAccountDependent(item.key)) return;
 		if (this.categoryFormOpen() && !this.categorySaving()) this.closeCategoryForm();
 		if (this.accountFormOpen() && !this.accountSaving()) this.closeAccountForm();
+		if (this.cardFormOpen() && !this.cardSaving()) this.closeCardForm();
 		this.store.navigate(item.key);
 		const activeAccountId = this.activeAccountId();
 		const useAccountRoute = activeAccountId !== null && this.isAccountDependent(item.key);
@@ -1550,13 +1620,15 @@ export class FinanceShellComponent {
 		if (this.categorySaving()) return;
 		if (this.categoryFormOpen()) this.closeCategoryForm();
 		if (this.accountFormOpen()) this.closeAccountForm();
+		if (this.cardFormOpen()) this.closeCardForm();
 		const previousId = this.store.selectedId();
 		this.store.selectRecord(id);
+		if (this.cardSectionActive()) this.store.setCardTab("overview");
 		if (this.active() === "categories" && previousId !== id) {
 			this.store.setCategoryTab("overview");
 		}
 		const record = this.selectedRecord();
-		if (record?.apiId && this.active() === "cardCredit")
+		if (record?.apiId && this.cardSectionActive() && record.cardType === "CREDITO")
 			this.store.loadInvoices(record.apiId, this.currentPeriod());
 		if (record?.apiId && this.active() === "categories")
 			this.store.loadBudgets(record.apiId);
@@ -1570,6 +1642,13 @@ export class FinanceShellComponent {
 	setQuery(query: string): void {
 		this.store.setQuery(query);
 	}
+	toggleCardTypeFilter(): void { this.cardTypeFilterOpen.update((open) => !open); }
+	toggleCardType(type: string): void {
+		const selected = new Set(this.selectedCardTypes());
+		if (selected.has(type)) selected.delete(type);
+		else selected.add(type);
+		this.selectedCardTypes.set(selected);
+	}
 	setAccountTab(tab: "overview" | "movements" | "entries"): void {
 		this.store.setAccountTab(tab);
 		const record = this.selectedRecord();
@@ -1579,6 +1658,11 @@ export class FinanceShellComponent {
 				this.store.loadAccountMovements(record.apiId, period);
 			else this.store.loadAccountEntries(record.apiId, period);
 		}
+	}
+	setCardTab(tab: "overview" | "invoices"): void {
+		this.store.setCardTab(tab);
+		const record = this.selectedRecord();
+		if (record?.apiId && tab === "invoices") this.store.loadInvoices(record.apiId, this.currentPeriod());
 	}
 	setCategoryTab(tab: CategoryTab): void {
 		this.store.setCategoryTab(tab);
@@ -1684,6 +1768,74 @@ export class FinanceShellComponent {
 		this.store.clearError();
 		this.accountFormOpen.set(true);
 		this.accountForm.reset({ bankName: "", creditTotal: 0, currentBalance: 0 });
+	}
+	openCardForm(): void {
+		this.store.selectRecord(null);
+		this.store.clearError();
+		this.cardFormOpen.set(true);
+		const type = this.active() === "cardCredit" ? "CREDITO" : this.active() === "cardDebit" ? "DEBITO" : this.active() === "cardVoucher" ? "VOUCHER" : "";
+		this.cardForm.reset({ nickname: "", type, accountId: this.activeAccountId() ?? "", creditLimit: "", closingDay: null, dueDay: null, voucherType: "VA_VR", rechargeAmount: "", rechargeDay: null });
+	}
+	selectCardType(type: "CREDITO" | "DEBITO" | "VOUCHER"): void { this.cardForm.controls.type.setValue(type); this.cardForm.controls.type.markAsTouched(); }
+	selectCardAccount(accountId: string | undefined): void { if (accountId) { this.cardForm.controls.accountId.setValue(accountId); this.cardForm.controls.accountId.markAsTouched(); } }
+	selectCardVoucherType(type: "VA_VR" | "CREDITO_VOUNCHER"): void { this.cardForm.controls.voucherType.setValue(type); }
+	isDueDayDisabled(day: number): boolean { const closingDay = this.cardForm.controls.closingDay.value; return closingDay !== null && day <= closingDay; }
+	updateDueDayOptions(): void {
+		const closingDay = this.cardForm.controls.closingDay.value;
+		document.querySelectorAll<HTMLButtonElement>(".card-specific-fields .card-day-fieldset:nth-of-type(2) .card-day-options button").forEach((button, index) => {
+			button.disabled = closingDay !== null && index + 1 <= closingDay;
+		});
+	}
+	selectCardDay(control: "closingDay" | "dueDay" | "rechargeDay", day: number): void {
+		if (control === "dueDay" && this.isDueDayDisabled(day)) return;
+		this.cardForm.controls[control].setValue(day);
+		this.cardForm.controls[control].markAsTouched();
+		if (control === "closingDay") this.updateDueDayOptions();
+		if (control === "closingDay" && this.cardForm.controls.dueDay.value !== null && this.cardForm.controls.dueDay.value <= day) {
+			this.cardForm.controls.dueDay.setValue(null);
+			this.cardForm.controls.dueDay.markAsTouched();
+		}
+	}
+	formatCardMoney(event: Event, control: "creditLimit" | "rechargeAmount"): void {
+		const input = event.target as HTMLInputElement;
+		const digits = input.value.replace(/\D/g, "");
+		const formatted = digits ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(digits) / 100) : "";
+		this.cardForm.controls[control].setValue(formatted);
+		input.value = formatted;
+	}
+	parseCardMoney(value: string): number | null { const digits = value.replace(/\D/g, ""); return digits ? Number(digits) / 100 : null; }
+	closeCardForm(): void {
+		if (!this.cardSaving()) {
+			this.cardFormOpen.set(false);
+			this.cardForm.reset({ nickname: "", type: "", accountId: "", creditLimit: "", closingDay: null, dueDay: null, voucherType: "VA_VR", rechargeAmount: "", rechargeDay: null });
+		}
+	}
+	saveCard(): void {
+		if (this.cardForm.invalid || this.cardSaving()) {
+			this.cardForm.markAllAsTouched();
+			return;
+		}
+		const value = this.cardForm.getRawValue();
+		const type = value.type as CardRequest["tipoCartao"];
+		const validDay = (day: number | null): day is number => day !== null && Number.isInteger(day) && day >= 1 && day <= 31;
+		const creditLimit = this.parseCardMoney(value.creditLimit);
+		const rechargeAmount = this.parseCardMoney(value.rechargeAmount);
+		if (type === "CREDITO" && (creditLimit === null || creditLimit <= 0 || !validDay(value.closingDay) || !validDay(value.dueDay) || value.dueDay <= value.closingDay)) {
+			this.cardForm.controls.creditLimit.markAsTouched();
+			this.cardForm.controls.closingDay.markAsTouched();
+			this.cardForm.controls.dueDay.markAsTouched();
+			return;
+		}
+		if (type === "VOUCHER" && (rechargeAmount === null || rechargeAmount <= 0 || !validDay(value.rechargeDay))) {
+			this.cardForm.controls.rechargeAmount.markAsTouched();
+			this.cardForm.controls.rechargeDay.markAsTouched();
+			return;
+		}
+		const request: CardRequest = { tipoCartao: type, contaBancariaId: value.accountId, apelido: value.nickname.trim() };
+		if (type === "CREDITO") request.cartaoCredito = { limiteCredito: creditLimit!, diaFechamento: value.closingDay!, diaVencimento: value.dueDay! };
+		if (type === "VOUCHER") request.cartaoVoucher = { tipoVoucher: value.voucherType as "VA_VR" | "CREDITO_VOUNCHER", valorRecarga: rechargeAmount!, diaRecarga: value.rechargeDay! };
+		this.cardSaving.set(true);
+		this.store.createCard(request).subscribe({ next: (created) => { this.cardSaving.set(false); if (created) this.closeCardForm(); }, error: () => this.cardSaving.set(false) });
 	}
 	openBudgetForm(): void {
 		if (!this.selectedRecord()?.apiId) return;
@@ -1868,6 +2020,7 @@ export class FinanceShellComponent {
 			: "#ed3114";
 	}
 	shortDate(value: string | undefined): string {
+		if (this.cardSectionActive()) return "";
 		if (!value) return "Data indisponível";
 		return new Date(`${value}T12:00:00`)
 			.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })
@@ -1898,7 +2051,8 @@ export class FinanceShellComponent {
 			dataFinal: `${month}-${String(lastDay).padStart(2, "0")}`,
 		};
 	}
-	listRecordIcon(record: { type: string }): string {
+	listRecordIcon(record: { type: string; category?: string }): string {
+		if (this.cardSectionActive()) return record.category === "CREDITO" ? "credit_score" : record.category === "VOUCHER" ? "confirmation_number" : "payments";
 		return this.active() === "accounts" ? "account_balance" : this.movementIcon(record);
 	}
 

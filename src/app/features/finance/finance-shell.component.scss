@@ -1,4 +1,47 @@
 :host { --instance-section-gap: 30px; --instance-section-heading-gap: 18px; }
+.content.form-layout .detail-panel { display: block; }
+.content.form-layout .detail-panel > :not(.category-form-panel) { display: none !important; }
+.card-form > .card-main-fields > label:nth-child(2), .card-form > .card-main-fields > label:nth-child(3), .card-form label:has(select[formControlName="type"]), .card-form label:has(select[formControlName="accountId"]), .card-form label:has(select[formControlName="voucherType"]) { display: none; }
+.card-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.card-form > .card-account-readonly { grid-column: 1; order: 1; }
+.card-form > .card-main-fields { grid-column: 2; order: 2; }
+.card-form > .card-main-fields > label { grid-column: 1 / -1; }
+.card-form > .card-type-fieldset { grid-column: 1 / -1; order: 3; }
+.card-form > .category-form-grid:not(.card-main-fields), .card-form > .card-voucher-fieldset { grid-column: 1 / -1; order: 4; }
+.card-form > .card-specific-fields:not(:has(.card-day-fieldset:nth-of-type(2))) { order: 5; }
+.card-form > .card-specific-divider { grid-column: 1 / -1; order: 4; height: 1px; margin: 4px 0 0; border-top: 1px solid #41424b; }
+.card-form > .card-voucher-fieldset { position: relative; padding-top: 0; border-top: 0; }
+.card-form > .card-voucher-fieldset::before { display: none; content: none; }
+.card-form > .card-specific-fields:not(:has(.card-day-fieldset:nth-of-type(2))) { padding-top: 0; border-top: 0; }
+.card-form > .category-form-grid:not(.card-main-fields)::before { grid-column: 1 / -1; content: "Dados específicos"; color: #b9bbc4; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+.card-form > .field-error, .card-form > .form-error, .card-form > .category-form-actions { grid-column: 1 / -1; order: 5; }
+.card-type-fieldset, .card-account-fieldset, .card-voucher-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.card-account-fieldset { display: none; }
+.card-account-readonly { display: flex; flex-direction: column; gap: 8px; }
+.card-account-readonly-label { color: #b9bbc4; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+.card-account-readonly > div { display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 10px; border: 1px solid #454650; border-radius: 9px; background: #22242b; color: #f6f6f8; }
+.card-main-fields input { min-height: 60px; }
+.card-account-readonly strong { flex: 1; font-size: 13px; }
+.card-account-readonly > div > .material-symbols-outlined:last-child { color: #9295a1; font-size: 17px; }
+.card-type-fieldset legend, .card-account-fieldset legend, .card-voucher-fieldset legend { margin-bottom: 8px; color: #b9bbc4; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+.card-type-options, .card-voucher-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.card-type-options button, .card-voucher-options button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 12px; border: 1px solid #454650; border-radius: 10px; background: #22242b; color: #9da0ab; font: 700 13px Inter, sans-serif; cursor: pointer; }
+.card-type-options button:hover, .card-voucher-options button:hover { border-color: #777a87; color: #f6f6f8; }
+.card-type-options button.selected, .card-voucher-options button.selected { border-color: #ed3114; background: rgb(237 49 20 / 12%); color: #fff; }
+.card-type-options .material-symbols-outlined { font-size: 19px; }
+.card-voucher-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.card-account-fieldset { grid-column: 1 / -1; }
+.card-account-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.card-account-options button { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 60px; padding: 10px; border: 1px solid #303238; border-radius: 9px; background: #292b33; color: #f6f6f8; text-align: left; cursor: pointer; }
+.card-account-options button:hover, .card-account-options button.selected { border-color: #ed3114; background: #303139; }
+.card-account-icon { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; border: 1px solid #65d0a8; border-radius: 9px; background: #173b34; color: #65d0a8; font-size: 19px; }
+.card-account-options button > span:nth-child(2) { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 4px; }
+.card-account-options strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.card-account-options small { color: #aeb0bb; font-size: 10px; font-weight: 600; }
+.card-option-check { flex: 0 0 18px; color: #ff6745; font-size: 18px; }
+.card-account-empty { padding: 12px; color: #aeb0bb; font-size: 12px; }
+@media (max-width: 700px) { .card-form { grid-template-columns: 1fr; } .card-form > .card-account-readonly, .card-form > .card-main-fields, .card-form > .card-type-fieldset, .card-form > .category-form-grid:not(.card-main-fields), .card-form > .card-voucher-fieldset, .card-form > .field-error, .card-form > .form-error, .card-form > .category-form-actions { grid-column: 1; } .card-type-options, .card-voucher-options, .card-account-options { grid-template-columns: 1fr; } }
+.card-form > .category-form-grid:not(.card-main-fields)::before { content: "" !important; height: 1px; margin: 4px 0 12px; border-top: 1px solid #41424b; color: transparent; }
 .movement-aside-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-align: center; }
 .movement-aside-actions .material-symbols-outlined { display: block; line-height: 1; font-size: 18px; }
 .movement-form textarea { width: 100%; min-height: 104px; box-sizing: border-box; resize: vertical; padding: 13px 14px; border: 1px solid #454650; border-radius: 10px; background: #22242b; color: #f6f6f8; font: 500 14px Inter, sans-serif; outline: none; }
@@ -93,5 +136,20 @@
   .detail-panel .category-detail-view > .category-tabs.domain-tabs.visible { margin-top: 18px !important; }
   .detail-panel .budget-form-panel { padding: 28px 22px 100px; }
 }
+.card-form > .category-form-grid:has(input[formControlName="creditLimit"]), .card-form > .category-form-grid:has(input[formControlName="rechargeAmount"]) { display: none; }
+.card-specific-fields { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(180px, .8fr) minmax(0, 1.1fr) minmax(0, 1.1fr); gap: 16px; order: 5; padding-top: 0; border-top: 0; }
+.card-specific-fields:has(.card-day-fieldset:nth-of-type(2)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.card-specific-fields:not(:has(.card-day-fieldset:nth-of-type(2))) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.card-specific-fields label { display: flex; flex-direction: column; gap: 8px; color: #b9bbc4; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+.card-specific-fields .card-money-field { grid-column: 1 / -1; }
+.card-specific-fields .card-day-fieldset { grid-column: span 1; }
+.card-specific-fields input { width: 100%; min-height: 60px; box-sizing: border-box; padding: 13px 14px; border: 1px solid #454650; border-radius: 10px; background: #22242b; color: #f6f6f8; font: 500 14px Inter, sans-serif; outline: none; }
+.card-day-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.card-day-fieldset legend { margin-bottom: 8px; color: #b9bbc4; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+.card-day-options { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.card-day-options button { min-width: 0; height: 28px; padding: 0; border: 1px solid #454650; border-radius: 6px; background: #22242b; color: #aeb0bb; font: 700 10px Inter, sans-serif; cursor: pointer; }
+.card-day-options button:hover, .card-day-options button.selected { border-color: #ed3114; background: rgb(237 49 20 / 12%); color: #fff; }
+.card-day-options button:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-width: 700px) { .card-specific-fields { grid-template-columns: 1fr; } .card-day-options { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
 .dashboard .dashboard-metrics,
 .dashboard > .dash-section:nth-of-type(5) { display: none; }

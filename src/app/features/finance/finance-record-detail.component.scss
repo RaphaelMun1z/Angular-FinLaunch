@@ -40,3 +40,24 @@
   .domain-metrics, .domain-fields { grid-template-columns: 1fr; }
   .domain-tabs { margin-top: 18px; }
 }
+.invoices-active > .domain-metrics,
+.invoices-active > .domain-fields { display: none; }
+.card-detail-section-heading { display:flex; align-items:center; gap:10px; margin:26px 0 16px; color:#f7f7f8; }
+.card-detail-section-heading .material-symbols-outlined { color:#ff6745; font-size:21px; }
+.card-detail-section-heading strong { font-size:16px; }
+.card-credit-detail { display:flex; flex-direction:column; }
+.card-credit-detail > .domain-header { order:1; }
+.card-credit-detail > .domain-tabs { order:2; }
+.card-credit-detail > .card-detail-section-heading { order:3; }
+.card-credit-detail > .domain-metrics,
+.card-credit-detail > .domain-fields { order:4; }
+.card-credit-detail > .card-invoices-section { order:4; }
+.card-credit-detail > .domain-metrics > div:nth-child(3),
+.card-credit-detail > .domain-metrics > div:nth-child(2),
+.card-credit-detail > .domain-fields > div:nth-child(3),
+.card-voucher-detail > .domain-metrics > div:nth-child(1),
+.card-voucher-detail > .domain-metrics > div:nth-child(2),
+.card-voucher-detail > .domain-fields > div:nth-child(1),
+.card-voucher-detail > .domain-fields > div:nth-child(2),
+.card-debit-detail > .domain-metrics,
+.card-debit-detail > .domain-fields { display: none; }

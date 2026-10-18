@@ -40,6 +40,7 @@ export const initialState: FinanceState = {
   query: "",
   filters: { type: "all", category: "all", from: "", to: "", sort: "recent" },
   accountTab: "overview",
+  cardTab: "overview",
   categoryTab: "overview",
   overviewSelection: { type: "month", value: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}` },
   editingId: null,

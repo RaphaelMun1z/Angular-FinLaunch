@@ -2365,6 +2365,24 @@ html,body{width:100%;height:100%;margin:0;padding:0;overflow:hidden}*{box-sizing
 .list-panel .record:hover{background:rgb(255 255 255 / 6%);transform:none!important}
 .list-panel .record.selected{background:rgb(255 255 255 / 4%);border:1px solid #454650;border-radius:8px;box-shadow:none;transform:none!important}
 .list-panel.accounts-mode .record-main>span:not(.record-title-line),.list-panel.accounts-mode .record-end{display:none}
+.list-panel.cards-mode .record-end{display:none}
+.list-panel.cards-mode .record-main>span:not(.record-title-line) b{display:none}
+.list-panel.cards-mode .record-icon{align-self:center;justify-self:center;display:grid;place-items:center;line-height:1}
+.list-panel.cards-mode .record-main{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px}
+.list-panel.cards-mode .record-main .record-title-line{grid-column:1;grid-row:1;min-width:0}
+.list-panel.cards-mode .record-main>span:not(.record-title-line){grid-column:2;grid-row:1;margin-top:0;text-align:right}
+.card-type-filter{display:flex;gap:8px;margin:12px 0 0;padding:8px;border:1px solid #303238;border-radius:8px;background:#202127}
+.card-type-filter button{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:0 10px;border:1px solid #454650;border-radius:7px;background:#22242b;color:#aeb0bb;font:700 11px Inter,sans-serif;cursor:pointer}
+.card-type-filter button.selected{border-color:#ed3114;background:rgb(237 49 20 / 12%);color:#fff}
+.card-type-filter button .material-symbols-outlined{font-size:17px}
+.card-type-filter .card-type-filter-check{margin-left:auto;font-size:16px}
+.card-type-filter{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0 2px;padding:12px;background:#1d1e24;border:1px solid #353640;border-radius:10px}
+.card-type-filter-heading{grid-column:1/-1;color:#8f93a1;font:800 10px Inter,sans-serif;letter-spacing:.08em}
+.card-type-filter button{justify-content:flex-start;min-height:42px;padding:0 12px;background:#24262e;transition:border-color .18s,background .18s,color .18s}
+.card-type-filter button:hover{border-color:#777b89;background:#2b2d36;color:#fff}
+.card-type-filter button.selected{border-color:#ed3114;background:linear-gradient(135deg,rgb(237 49 20 / 18%),rgb(237 49 20 / 7%));box-shadow:inset 0 0 0 1px rgb(237 49 20 / 12%);color:#fff}
+.card-type-filter button.selected .material-symbols-outlined:first-child{color:#ff6048}
+@media(max-width:700px){.card-type-filter{grid-template-columns:1fr}.card-type-filter-heading{grid-column:1}}
 .list-panel.accounts-mode .item-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .list-panel.accounts-mode .record-icon.material-symbols-outlined{display:grid;place-items:center;line-height:1}
 .list-panel.accounts-mode .record-main strong{font-size:15px}

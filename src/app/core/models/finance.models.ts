@@ -13,6 +13,7 @@ export type SectionKey =
   | "investments"
   | "goals";
 export type AccountTab = "overview" | "movements" | "entries";
+export type CardTab = "overview" | "invoices";
 export type CategoryTab = "overview" | "budgets";
 export type OverviewSelection =
   | { type: "day"; value: string }
@@ -98,6 +99,7 @@ export interface FinanceState {
   query: string;
   filters: Filters;
   accountTab: AccountTab;
+  cardTab: CardTab;
   categoryTab: CategoryTab;
   overviewSelection: OverviewSelection;
   editingId: string | null;
