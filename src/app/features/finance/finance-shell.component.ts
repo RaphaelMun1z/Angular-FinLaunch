@@ -14,7 +14,7 @@ import { MonthlyLineChartComponent } from "../../shared/components/monthly-line-
 import { FinanceRecordDetailComponent } from "./finance-record-detail.component";
 import { FinanceStore } from "../../core/store/finance.store";
 import { AuthService } from "../../core/auth/auth.service";
-import { CategoryType, MovementMethod, MovementRequest } from "../../core/api/api.models";
+import { BudgetRequest, CategoryType, MovementMethod, MovementRequest } from "../../core/api/api.models";
 import { navigation } from "../../core/models/finance.data";
 import {
 	CategoryTab,
@@ -47,7 +47,10 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 				[period]="headerPeriod()"
 				[initials]="userInitials()"
 				[userMenuOpen]="userMenuOpen()"
+				[accounts]="movementAccounts()"
+				[activeAccountId]="activeAccountId() || movementAccounts()[0]?.apiId || ''"
 				(create)="openMovementAside()"
+				(accountChange)="selectActiveAccount($event)"
 				(toggleMenu)="toggleUserMenu()"
 				(logout)="logout()"
 			/>
@@ -159,6 +162,7 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 						class="list-panel"
 						[class.calendar-mode]="active() === 'overview'"
 						[class.categories-mode]="active() === 'categories'"
+						[class.accounts-mode]="active() === 'accounts'"
 					>
 						@if (active() === "overview") {
 							<app-calendar-view
@@ -170,13 +174,13 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 								<div>
 									<h1>{{ activeSection().title }}</h1>
 								</div>
-								@if (active() === "categories") {
+				@if (active() === "categories" || active() === "accounts") {
 									<button
 										class="new-instance-icon"
 										type="button"
-										title="Nova categoria"
-										aria-label="Nova categoria"
-										(click)="openCategoryForm()"
+										[title]="active() === 'categories' ? 'Nova categoria' : 'Nova conta bancária'"
+										[attr.aria-label]="active() === 'categories' ? 'Nova categoria' : 'Nova conta bancária'"
+										(click)="active() === 'categories' ? openCategoryForm() : openAccountForm()"
 									>
 										<span class="material-symbols-outlined"
 											>add</span
@@ -234,6 +238,7 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 									>
 										<span
 											class="record-icon"
+										[class.material-symbols-outlined]="active() === 'accounts'"
 											[class.income]="
 												record.type === 'income'
 											"
@@ -245,7 +250,7 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 											>{{
 												active() === "categories"
 													? categoryIcon(record)
-													: movementIcon(record)
+													: listRecordIcon(record)
 											}}</span
 										><span class="record-main"
 											><span class="record-title-line"><strong>{{ record.title }}</strong>@if (active() === "categories") { <span class="category-list-type-tag" [class.income]="record.type === 'income'" [class.expense]="record.type === 'expense'" [attr.aria-label]="record.type === 'income' ? 'Entrada' : 'Saída'" [title]="record.type === 'income' ? 'Entrada' : 'Saída'"><span class="material-symbols-outlined">{{ record.type === "income" ? "arrow_upward" : "arrow_downward" }}</span></span> }</span>@if (active() !== "categories") { <span>{{ record.category }} <b>·</b> {{ active() === "accounts" ? (record.movements?.length ?? 0) + " movimentações" : shortDate(record.date) }}</span> }</span
@@ -294,9 +299,9 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 						"
 					>
 						<div
-							class="category-tabs"
+							class="category-tabs domain-tabs"
 							[class.visible]="
-								active() === 'categories' && selectedRecord()
+													false
 							"
 							role="tablist"
 						>
@@ -308,7 +313,7 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 														aria-label="Detalhes da categoria"
 														title="Detalhes"
 								(click)="setCategoryTab('overview')"
-													></button
+													>Visão geral</button
 							><button
 								class="account-tab"
 								[class.active]="
@@ -317,7 +322,7 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 														aria-label="Orçamentos da categoria"
 														title="Orçamentos"
 								(click)="setCategoryTab('budgets')"
-													></button>
+													>Orçamentos</button>
 						</div>
 						@if (
 							active() === "categories" &&
@@ -548,7 +553,7 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 											class="secondary-btn"
 											(click)="closeCategoryForm()"
 										>
-											CANCELAR</button
+											<span class="material-symbols-outlined">close</span>CANCELAR</button
 										><button
 											type="submit"
 											class="primary-btn"
@@ -565,6 +570,41 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 													? "SALVANDO..."
 													: "SALVAR CATEGORIA"
 											}}
+										</button>
+									</div>
+								</form>
+							</div>
+						}
+						@if (active() === "accounts" && accountFormOpen()) {
+							<div class="category-form-panel">
+								<div class="category-form-heading">
+									<div>
+										<h2>Nova conta bancária</h2>
+									</div>
+									<button type="button" class="category-form-close" aria-label="Fechar formulário" (click)="closeAccountForm()">
+										<span class="material-symbols-outlined">close</span>
+									</button>
+								</div>
+								<form class="category-form" [formGroup]="accountForm" (ngSubmit)="saveAccount()">
+									<div class="category-form-grid">
+										<label>Nome do banco<input formControlName="bankName" maxlength="100" autocomplete="organization" /></label>
+										<label>Crédito total<input type="number" formControlName="creditTotal" min="0" step="0.01" inputmode="decimal" /></label>
+										<label>Saldo corrente<input type="number" formControlName="currentBalance" step="0.01" inputmode="decimal" /></label>
+									</div>
+									@if (accountForm.controls.bankName.touched && accountForm.controls.bankName.invalid) {
+										<small class="field-error">Informe o nome do banco.</small>
+									}
+									@if (accountForm.controls.creditTotal.touched && accountForm.controls.creditTotal.invalid) {
+										<small class="field-error">Informe um crédito total válido.</small>
+									}
+									@if (accountForm.controls.currentBalance.touched && accountForm.controls.currentBalance.invalid) {
+										<small class="field-error">Informe um saldo válido.</small>
+									}
+									@if (store.error(); as error) { <div class="form-error">{{ error }}</div> }
+									<div class="category-form-actions">
+										<button type="button" class="secondary-btn" (click)="closeAccountForm()"><span class="material-symbols-outlined">close</span>CANCELAR</button>
+										<button type="submit" class="primary-btn" [disabled]="accountForm.invalid || accountSaving()">
+											<span class="material-symbols-outlined">save</span>{{ accountSaving() ? "SALVANDO..." : "SALVAR CONTA" }}
 										</button>
 									</div>
 								</form>
@@ -627,8 +667,33 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 											>
 										</div>
 									</div>
+									<div class="category-tabs domain-tabs visible" role="tablist">
+										<button class="account-tab" [class.active]="store.categoryTab() === 'overview'" aria-label="Detalhes da categoria" title="Detalhes" (click)="setCategoryTab('overview')">Visão geral</button>
+										<button class="account-tab" [class.active]="store.categoryTab() === 'budgets'" aria-label="Orçamentos da categoria" title="Orçamentos" (click)="setCategoryTab('budgets')">Orçamentos</button>
+									</div>
+									@if (store.categoryTab() === 'budgets') {
+										<div class="category-budget-panel category-budget-panel-inline">
+											<div class="category-budget-toolbar"><strong>Orçamentos</strong>@if (!hasCurrentBudget() && !budgetFormOpen()) { <button type="button" class="primary-btn" (click)="openBudgetForm()"><span class="material-symbols-outlined">add</span>CRIAR ORÇAMENTO</button> }</div>
+											@if (budgetFormOpen()) {
+												<div class="category-form-panel budget-form-panel">
+													<div class="category-form-heading"><div><h2>Novo orçamento</h2></div><button type="button" class="category-form-close" aria-label="Fechar formulário" (click)="closeBudgetForm()"><span class="material-symbols-outlined">close</span></button></div>
+													<form class="category-budget-form category-form" [formGroup]="budgetForm" (ngSubmit)="saveBudget()">
+													<label>VALOR LIMITE<input type="number" min="0.01" step="0.01" formControlName="limit" placeholder="0,00" /></label>
+													@if (budgetForm.controls.limit.invalid && budgetForm.controls.limit.touched) { <span class="field-error">Informe um valor limite válido.</span> }
+													<div class="category-form-actions"><button type="button" class="secondary-btn" (click)="closeBudgetForm()"><span class="material-symbols-outlined">close</span>CANCELAR</button><button type="submit" class="primary-btn" [disabled]="budgetForm.invalid || budgetSaving()"><span class="material-symbols-outlined">save</span>{{ budgetSaving() ? "SALVANDO..." : "SALVAR ORÇAMENTO" }}</button></div>
+												</form>
+												</div>
+											}
+											@for (budget of categoryBudgets(); track budget.id) {
+												<div class="category-budget-row"><div><strong>{{ monthReference(budget.date) }}</strong></div><div class="budget-progress" role="progressbar" [attr.aria-valuenow]="budget.currentAmount ?? null" [attr.aria-valuemax]="budget.amount ?? null" aria-label="Consumo do orçamento"><span [style.width.%]="budgetProgress(budget.currentAmount, budget.amount)"></span></div><div class="category-budget-values"><span>Consumido <strong>{{ money(budget.currentAmount) }}</strong></span><span>Limite <strong>{{ money(budget.amount) }}</strong></span></div></div>
+											} @empty {
+												<div class="no-records">Nenhum orçamento cadastrado para esta categoria.</div>
+											}
+										</div>
+									}
 									<div class="category-budget-section">
 										<div class="category-section-title">
+											@if (!hasCurrentBudget() && !budgetFormOpen()) { <button type="button" class="category-budget-create" (click)="openBudgetForm()"><span class="material-symbols-outlined">add</span>CRIAR ORÇAMENTO</button> }
 											<span
 												class="material-symbols-outlined"
 												>payments</span
@@ -689,7 +754,7 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 												</div>
 											</div>
 										} @else {
-											<div class="category-empty-state">
+											<div class="category-empty-state">@if (!hasCurrentBudget() && !budgetFormOpen()) { <button type="button" class="category-empty-create" (click)="openBudgetForm()"><span class="material-symbols-outlined">add</span>CRIAR ORÇAMENTO</button> }
 												Esta categoria não possui
 												orçamento cadastrado.
 											</div>
@@ -1127,7 +1192,7 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 					<label>Descrição<textarea formControlName="description" maxlength="120" rows="4"></textarea></label>
 					<label class="movement-check"><input formControlName="recurring" type="checkbox" />Movimentação recorrente</label>
 					@if (movementForm.controls.type.invalid && movementForm.controls.type.touched) { <small class="field-error">Selecione Entrada ou Saída.</small> } @if (movementForm.controls.amount.invalid && movementForm.controls.amount.touched) { <small class="field-error">Informe um valor maior que zero.</small> } @if (movementForm.controls.accountId.invalid && movementForm.controls.accountId.touched) { <small class="field-error">Selecione uma conta bancária.</small> } @if (movementForm.controls.categoryId.invalid && movementForm.controls.categoryId.touched) { <small class="field-error">Selecione uma categoria.</small> } @if (movementForm.controls.method.invalid && movementForm.controls.method.touched) { <small class="field-error">Selecione a forma de pagamento.</small> } @if (store.error(); as error) { <div class="form-error">{{ error }}</div> }
-					<div class="category-form-actions movement-aside-actions"><button type="button" class="secondary-btn" (click)="closeMovementAside()">CANCELAR</button><button type="submit" class="primary-btn" [disabled]="movementForm.invalid || movementSaving()"><span class="material-symbols-outlined">save</span>{{ movementSaving() ? 'SALVANDO...' : 'SALVAR MOVIMENTAÇÃO' }}</button></div>
+					<div class="category-form-actions movement-aside-actions"><button type="button" class="secondary-btn" (click)="closeMovementAside()"><span class="material-symbols-outlined">close</span>CANCELAR</button><button type="submit" class="primary-btn" [disabled]="movementForm.invalid || movementSaving()"><span class="material-symbols-outlined">save</span>{{ movementSaving() ? 'SALVANDO...' : 'SALVAR MOVIMENTAÇÃO' }}</button></div>
 				</form>
 			</aside>
 		}
@@ -1243,7 +1308,16 @@ export class FinanceShellComponent {
 				].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))
 			: [];
 	});
+	readonly currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+	readonly hasCurrentBudget = computed(() => {
+		const category = this.selectedRecord();
+		return Boolean(
+			category?.budget?.month === this.currentMonth ||
+			this.categoryBudgets().some((budget) => budget.date === this.currentMonth),
+		);
+	});
 	readonly movementAccounts = computed(() => this.store.sections().accounts.records.filter((record) => record.apiId));
+	readonly activeAccountId = signal<string | null>(null);
 	readonly movementCategories = computed(() => this.store.sections().categories.records.filter((record) => record.apiId));
 	readonly modalOpen = computed(
 		() => this.store.editingId() !== null || this.modalVisible(),
@@ -1254,6 +1328,10 @@ export class FinanceShellComponent {
 	private readonly modalVisible = signal(false);
 	readonly categoryFormOpen = signal(false);
 	readonly categorySaving = signal(false);
+	readonly accountFormOpen = signal(false);
+	readonly accountSaving = signal(false);
+	readonly budgetFormOpen = signal(false);
+	readonly budgetSaving = signal(false);
 	readonly movementAsideOpen = signal(false);
 	readonly movementSaving = signal(false);
 	readonly categoryPickerOpen = signal(false);
@@ -1301,6 +1379,14 @@ export class FinanceShellComponent {
 			Validators.required,
 			Validators.maxLength(50),
 		]),
+	});
+	readonly accountForm = this.fb.group({
+		bankName: this.fb.nonNullable.control("", [Validators.required, Validators.maxLength(100)]),
+		creditTotal: this.fb.nonNullable.control(0, [Validators.required, Validators.min(0)]),
+		currentBalance: this.fb.nonNullable.control(0, [Validators.required]),
+	});
+	readonly budgetForm = this.fb.group({
+		limit: this.fb.control<number | null>(null, [Validators.required, Validators.min(0.01)]),
 	});
 	readonly movementForm = this.fb.group({
 		type: this.fb.control<CategoryType | "">("", Validators.required),
@@ -1383,6 +1469,7 @@ export class FinanceShellComponent {
 	}
 	navigate(item: NavItem): void {
 		if (this.categoryFormOpen() && !this.categorySaving()) this.closeCategoryForm();
+		if (this.accountFormOpen() && !this.accountSaving()) this.closeAccountForm();
 		this.store.navigate(item.key);
 		void this.router.navigate(item.key === "overview" ? ["/"] : [item.key]);
 	}
@@ -1415,6 +1502,7 @@ export class FinanceShellComponent {
 	selectRecord(id: string): void {
 		if (this.categorySaving()) return;
 		if (this.categoryFormOpen()) this.closeCategoryForm();
+		if (this.accountFormOpen()) this.closeAccountForm();
 		const previousId = this.store.selectedId();
 		this.store.selectRecord(id);
 		if (this.active() === "categories" && previousId !== id) {
@@ -1423,6 +1511,8 @@ export class FinanceShellComponent {
 		const record = this.selectedRecord();
 		if (record?.apiId && this.active() === "cardCredit")
 			this.store.loadInvoices(record.apiId, this.currentPeriod());
+		if (record?.apiId && this.active() === "categories")
+			this.store.loadBudgets(record.apiId);
 	}
 	clearSelection(): void {
 		this.store.selectRecord(null);
@@ -1497,7 +1587,12 @@ export class FinanceShellComponent {
 		this.movementAsideOpen.set(true);
 		this.categoryPickerOpen.set(false);
 		this.paymentPickerOpen.set(false);
-		this.movementForm.reset({ type: "", amount: null, accountId: "", categoryId: "", method: "", date: "", description: "", recurring: false });
+		this.movementForm.reset({ type: "", amount: null, accountId: this.activeAccountId() ?? this.movementAccounts()[0]?.apiId ?? "", categoryId: "", method: "", date: "", description: "", recurring: false });
+	}
+	selectActiveAccount(accountId: string): void {
+		this.activeAccountId.set(accountId || null);
+		if (this.movementAsideOpen()) this.movementForm.controls.accountId.setValue(accountId);
+		if (accountId && this.active() === "accounts") this.store.selectRecord(accountId);
 	}
 	closeMovementAside(): void {
 		if (!this.movementSaving()) {
@@ -1528,6 +1623,68 @@ export class FinanceShellComponent {
 		this.store.clearError();
 		this.categoryFormOpen.set(true);
 		this.categoryForm.reset({ name: "", type: "", color: "", icon: "" });
+	}
+	openAccountForm(): void {
+		this.store.selectRecord(null);
+		this.store.clearError();
+		this.accountFormOpen.set(true);
+		this.accountForm.reset({ bankName: "", creditTotal: 0, currentBalance: 0 });
+	}
+	openBudgetForm(): void {
+		if (!this.selectedRecord()?.apiId) return;
+		this.store.clearError();
+		this.setCategoryTab("budgets");
+		this.budgetFormOpen.set(true);
+		this.budgetForm.reset({ limit: null });
+	}
+	closeBudgetForm(): void {
+		if (!this.budgetSaving()) {
+			this.budgetFormOpen.set(false);
+			this.budgetForm.reset({ limit: null });
+		}
+	}
+	saveBudget(): void {
+		const categoryId = this.selectedRecord()?.apiId;
+		if (!categoryId || this.budgetForm.invalid || this.budgetSaving()) {
+			this.budgetForm.markAllAsTouched();
+			return;
+		}
+		const value = this.budgetForm.getRawValue();
+		if (value.limit === null) return;
+		this.budgetSaving.set(true);
+		const request: BudgetRequest = { valorLimite: value.limit };
+		this.store.createBudget(categoryId, request).subscribe({
+			next: (created) => {
+				this.budgetSaving.set(false);
+				if (created) this.closeBudgetForm();
+			},
+			error: () => this.budgetSaving.set(false),
+		});
+	}
+	closeAccountForm(): void {
+		if (!this.accountSaving()) {
+			this.accountFormOpen.set(false);
+			this.accountForm.reset({ bankName: "", creditTotal: 0, currentBalance: 0 });
+		}
+	}
+	saveAccount(): void {
+		if (this.accountForm.invalid || this.accountSaving()) {
+			this.accountForm.markAllAsTouched();
+			return;
+		}
+		const value = this.accountForm.getRawValue();
+		this.accountSaving.set(true);
+		this.store.createAccount({
+			nomeDoBanco: value.bankName.trim(),
+			creditoTotal: value.creditTotal,
+			saldoCorrente: value.currentBalance,
+		}).subscribe({
+			next: (created) => {
+				this.accountSaving.set(false);
+				if (created) this.closeAccountForm();
+			},
+			error: () => this.accountSaving.set(false),
+		});
 	}
 	closeCategoryForm(): void {
 		if (!this.categorySaving()) {
@@ -1686,6 +1843,10 @@ export class FinanceShellComponent {
 			dataFinal: `${month}-${String(lastDay).padStart(2, "0")}`,
 		};
 	}
+	listRecordIcon(record: { type: string }): string {
+		return this.active() === "accounts" ? "account_balance" : this.movementIcon(record);
+	}
+
 	movementIcon(record: { type: string }): string {
 		return record.type === "income"
 			? "↑"

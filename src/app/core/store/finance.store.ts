@@ -3,7 +3,7 @@ import { patchState, signalStore, withComputed, withMethods, withState } from "@
 import { forkJoin, Observable, of } from "rxjs";
 import { catchError, map } from "rxjs/operators";
 import { FinanceApiService } from "../api/finance-api.service";
-import { BankAccountResponse, CardResponse, CategoryRequest, CategoryResponse, GoalResponse, InvestmentResponse, MovementRequest, PeriodRequest } from "../api/api.models";
+import { BankAccountRequest, BankAccountResponse, BudgetRequest, CardResponse, CategoryRequest, CategoryResponse, GoalResponse, InvestmentResponse, MovementRequest, PeriodRequest } from "../api/api.models";
 import { toUserError } from "../http/http-error.util";
 import { initialState } from "../models/finance.data";
 import { FinanceRecord, FinanceState, Filters, Movement, OverviewSelection, SectionKey } from "../models/finance.models";
@@ -91,6 +91,35 @@ export const FinanceStore = signalStore(
         catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(false); }),
       );
     },
+    createAccount(values: BankAccountRequest): Observable<boolean> {
+      return api.createAccount(values).pipe(
+        map((created) => {
+          const record = mapAccountRecord(created);
+          if (!record) {
+            patchState(store, { error: "A conta foi salva, mas a API não retornou os dados necessários para atualizar a listagem." });
+            return false;
+          }
+          patchState(store, {
+            sections: {
+              ...store.sections(),
+              accounts: {
+                ...store.sections().accounts,
+                records: [...store.sections().accounts.records, record],
+              },
+            },
+            error: null,
+          });
+          return true;
+        }),
+        catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(false); }),
+      );
+    },
+    createBudget(categoryId: string, values: BudgetRequest): Observable<boolean> {
+      return api.createBudget(categoryId, values).pipe(
+        map(() => { (store as unknown as { loadBudgets: (id: string) => void }).loadBudgets(categoryId); return true; }),
+        catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(false); }),
+      );
+    },
     createMovement(accountId: string, values: MovementRequest): Observable<boolean> {
       return api.createMovement(accountId, values).pipe(
         map(() => { return true; }),
@@ -111,7 +140,7 @@ export const FinanceStore = signalStore(
 );
 
 function mapApiSections(accounts: BankAccountResponse[], cards: CardResponse[], categories: CategoryResponse[], investments: InvestmentResponse[], goals: GoalResponse[]): FinanceState["sections"] {
-  const accountRecords = accounts.filter((item) => item.id !== undefined && item.nomeDoBanco !== undefined && item.saldoCorrente !== undefined).map((item) => ({ id: item.id!, apiId: item.id!, title: item.nomeDoBanco!, category: "Conta corrente", amount: item.saldoCorrente!, balance: item.saldoCorrente, creditTotal: item.creditoTotal, creditRemaining: item.creditoRestante, date: "", type: "income" as const }));
+  const accountRecords = accounts.map(mapAccountRecord).filter((record): record is FinanceRecord => record !== null);
   const categoryRecords = mapCategoryRecords(categories);
   const budgetRecords: FinanceRecord[] = [];
   const cardRecords = cards.filter((item) => item.id !== undefined && item.apelido !== undefined && item.tipoCartao !== undefined && (item.limiteCredito !== undefined || item.saldoCorrente !== undefined || item.valorRecarga !== undefined)).map((item) => ({ id: item.id!, apiId: item.id!, title: item.apelido!, category: item.tipoCartao!, amount: item.limiteCredito ?? item.saldoCorrente ?? item.valorRecarga!, creditLimit: item.limiteCredito, balance: item.saldoCorrente, rechargeAmount: item.valorRecarga, accountId: item.contaBancariaId, cardType: item.tipoCartao, closingDay: item.diaFechamento, dueDay: item.diaVencimento, rechargeDay: item.diaRecarga, date: "", type: "expense" as const }));
@@ -119,6 +148,11 @@ function mapApiSections(accounts: BankAccountResponse[], cards: CardResponse[], 
   const goalRecords = goals.filter((item) => item.id !== undefined && item.objetivo !== undefined && item.valorAlvo !== undefined && item.dataConclusaoPrevista !== undefined).map((item) => ({ id: item.id!, apiId: item.id!, title: item.objetivo!, category: "Meta financeira", amount: item.valorAlvo!, targetAmount: item.valorAlvo, accumulatedAmount: item.valorAcumulado, dueDate: item.dataConclusaoPrevista, date: item.dataConclusaoPrevista!, type: "income" as const }));
   const current = initialState.sections;
   return { ...current, accounts: { ...current.accounts, records: accountRecords }, categories: { ...current.categories, records: categoryRecords }, budgets: { ...current.budgets, records: budgetRecords }, cards: { ...current.cards, records: cardRecords }, cardCredit: { ...current.cardCredit, records: cardRecords.filter((record) => record.category === "CREDITO") }, cardDebit: { ...current.cardDebit, records: cardRecords.filter((record) => record.category === "DEBITO") }, cardVoucher: { ...current.cardVoucher, records: cardRecords.filter((record) => record.category === "VOUCHER") }, investments: { ...current.investments, records: investmentRecords }, goals: { ...current.goals, records: goalRecords } };
+}
+
+function mapAccountRecord(item: BankAccountResponse): FinanceRecord | null {
+  if (item.id === undefined || item.nomeDoBanco === undefined) return null;
+  return { id: item.id, apiId: item.id, title: item.nomeDoBanco, category: "Conta corrente", amount: item.saldoCorrente, balance: item.saldoCorrente, creditTotal: item.creditoTotal, creditRemaining: item.creditoRestante, date: "", type: "income" as const };
 }
 
 function mapCategoryRecords(categories: CategoryResponse[]): FinanceRecord[] {

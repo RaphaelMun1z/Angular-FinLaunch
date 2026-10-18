@@ -1,6 +1,7 @@
 import { Injectable, inject } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
 import { Observable } from "rxjs";
+import { map } from "rxjs/operators";
 import {
   BankAccountRequest, BankAccountResponse, BudgetRequest, BudgetResponse, CardRequest, CardResponse,
   CategoryRequest, CategoryResponse, EntryResponse, GoalRequest, GoalResponse, InvestmentRequest,
@@ -35,7 +36,15 @@ export class FinanceApiService {
   createCategory(body: CategoryRequest): Observable<CategoryResponse> { return this.http.post<CategoryResponse>(`${this.baseUrl}/categorias-movimentacao`, body); }
   getCategory(categoryId: string): Observable<CategoryResponse> { return this.http.get<CategoryResponse>(`${this.baseUrl}/categorias-movimentacao/${encodeURIComponent(categoryId)}`); }
   listBudgets(categoryId: string): Observable<BudgetResponse[]> { return this.http.get<BudgetResponse[]>(`${this.baseUrl}/categorias-movimentacao/${encodeURIComponent(categoryId)}/orcamentos`); }
-  createBudget(categoryId: string, body: BudgetRequest): Observable<BudgetResponse> { return this.http.post<BudgetResponse>(`${this.baseUrl}/categorias-movimentacao/${encodeURIComponent(categoryId)}/orcamentos`, body); }
+  createBudget(categoryId: string, body: BudgetRequest): Observable<BudgetResponse | null> {
+    return this.http.post(`${this.baseUrl}/categorias-movimentacao/${encodeURIComponent(categoryId)}/orcamentos`, body, { responseType: "text" }).pipe(
+      map((payload) => {
+        const content = payload.trim();
+        if (!content) return null;
+        try { return JSON.parse(content) as BudgetResponse; } catch { return null; }
+      }),
+    );
+  }
 
   listCards(): Observable<CardResponse[]> { return this.http.get<CardResponse[]>(`${this.baseUrl}/cartoes`); }
   createCard(body: CardRequest): Observable<CardResponse> { return this.http.post<CardResponse>(`${this.baseUrl}/cartoes`, body); }

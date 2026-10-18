@@ -17,7 +17,11 @@ import { NotificationService } from "../../core/notifications/notification.servi
 	template: `<main class="login-page">
 		<section class="login-card">
 			<div class="login-content">
-				<img class="login-brand-logo" src="assets/finlaunch_logo.png" alt="FinLaunch" />
+				<img
+					class="login-brand-logo"
+					src="assets/finlaunch_logo.png"
+					alt="FinLaunch"
+				/>
 				<div class="login-copy">
 					<h1>Olá,<br />bem-vindo de volta</h1>
 					<p></p>
@@ -142,8 +146,7 @@ import { NotificationService } from "../../core/notifications/notification.servi
 							font-family="Arial, sans-serif"
 							font-weight="800"
 							letter-spacing="1"
-						>
-						</text>
+						></text>
 						<text
 							x="94"
 							y="235"
@@ -151,8 +154,7 @@ import { NotificationService } from "../../core/notifications/notification.servi
 							font-size="27"
 							font-family="Arial, sans-serif"
 							font-weight="800"
-						>
-						</text>
+						></text>
 						<text
 							x="94"
 							y="258"
@@ -160,8 +162,7 @@ import { NotificationService } from "../../core/notifications/notification.servi
 							font-size="11"
 							font-family="Arial, sans-serif"
 							font-weight="700"
-						>
-						</text>
+						></text>
 					</g>
 					<g transform="translate(476 126)">
 						<rect
@@ -180,8 +181,7 @@ import { NotificationService } from "../../core/notifications/notification.servi
 							font-family="Arial, sans-serif"
 							font-weight="800"
 							letter-spacing="1"
-						>
-						</text>
+						></text>
 						<path
 							d="M20 91 L54 71 L82 80 L113 48 L145 57"
 							fill="none"
@@ -242,8 +242,7 @@ import { NotificationService } from "../../core/notifications/notification.servi
 							font-size="29"
 							font-family="Arial, sans-serif"
 							font-weight="800"
-						>
-						</text>
+						></text>
 						<text
 							x="31"
 							y="147"

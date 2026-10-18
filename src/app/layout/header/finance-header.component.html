@@ -3,7 +3,8 @@
   <div class="topbar-center"><span class="workspace-title">Gestão financeira</span></div>
   <div class="topbar-actions">
     <span class="current-period">{{ period }}</span>
-    <button class="create-btn header-create-btn" type="button" (click)="create.emit()"><span class="material-symbols-outlined">add</span>NOVO REGISTRO</button>
+    <button class="create-btn header-create-btn" type="button" (click)="create.emit()"><span class="material-symbols-outlined">add</span>NOVA MOVIMENTAÇÃO</button>
+    <label class="active-account-select"><span class="material-symbols-outlined">account_balance</span><span class="sr-only">Conta bancária ativa</span><select [value]="activeAccountId" (change)="accountChange.emit(($any($event.target)).value)"><option value="">Conta bancária</option>@for (account of accounts; track account.id) { <option [value]="account.id">{{ account.title }}</option> }</select></label>
     <div class="user-menu" [class.open]="userMenuOpen" (click)="$event.stopPropagation()">
       <button class="avatar" type="button" aria-label="Abrir menu do usuário" [attr.aria-expanded]="userMenuOpen" (click)="toggleMenu.emit()">{{ initials }}</button>
       @if (userMenuOpen) { <div class="user-popover" role="menu"><strong>{{ user?.nomeCompleto ?? "Usuário" }}</strong><span>{{ user?.email ?? "" }}</span><button type="button" class="user-logout" role="menuitem" (click)="logout.emit()"><span class="material-symbols-outlined">logout</span>Sair</button></div> }

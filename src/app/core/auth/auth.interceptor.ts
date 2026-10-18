@@ -12,7 +12,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
     : request;
   return next(authenticatedRequest).pipe(catchError((error: HttpErrorResponse) => {
     logHttpError(error);
-    if (error.status === 401 && !request.url.endsWith("/auth/acessar")) auth.logout();
+    if (error.status === 401 && !request.url.endsWith("/auth/acessar")) auth.unauthorized();
     return throwError(() => error);
   }));
 };
