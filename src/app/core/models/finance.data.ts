@@ -6,7 +6,7 @@ export const sections: Record<SectionKey, SectionData> = {
   overview: section("overview", "Visão geral", "Um resumo completo das suas finanças.", "resumo"),
   transactions: section("transactions", "Lançamentos", "Acompanhe e organize suas movimentações.", "lançamento"),
   accounts: section("accounts", "Contas bancárias", "Gerencie seus saldos e instituições.", "conta bancária"),
-  statements: section("statements", "Reg. Movimentações", "Consulte as movimentações da conta ativa.", "registro de movimentação"),
+  statements: section("statements", "Extratos", "Consulte movimentações e lançamentos por período.", "extrato"),
   cards: section("cards", "Cartões", "Controle seus cartões e limites.", "cartão"),
   cardCredit: section("cardCredit", "Cartões > Crédito", "Acompanhe limites e compras no crédito.", "cartão de crédito"),
   cardDebit: section("cardDebit", "Cartões > Débito", "Gerencie os cartões vinculados às suas contas.", "cartão de débito"),
@@ -21,13 +21,12 @@ export const sections: Record<SectionKey, SectionData> = {
 export const navigation: NavItem[] = [
   { key: "overview", label: "Visão geral", icon: "dashboard" },
   { key: "accounts", label: "Contas bancárias", icon: "account_balance" },
-  { key: "statements", label: "Reg. Movimentações", icon: "swap_vert" },
   { key: "cards", label: "Cartões", icon: "credit_card", children: [
     { key: "cardCredit", label: "Crédito", icon: "credit_score", children: [{ key: "invoices", label: "Faturas", icon: "description" }] },
     { key: "cardDebit", label: "Débito", icon: "payments" },
     { key: "cardVoucher", label: "Voucher", icon: "confirmation_number" },
   ] },
-  { key: "transactions", label: "Lançamentos", icon: "receipt_long" },
+  { key: "statements", label: "Extratos", icon: "receipt_long" },
   { key: "categories", label: "Categorias", icon: "sell" },
   { key: "budgets", label: "Orçamentos", icon: "pie_chart" },
   { key: "investments", label: "Investimentos", icon: "monitoring" },

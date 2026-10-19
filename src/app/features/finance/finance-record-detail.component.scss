@@ -1,8 +1,28 @@
 :host { display: block; min-height: 100%; }
 
 .domain-detail { position: relative; min-height: 100%; padding: 34px 38px 42px; background: transparent; color: #f6f6f8; }
-.detail-resource-loading { position: absolute; top: 190px; right: 38px; left: 38px; min-height: 260px; z-index: 2; }
+.detail-resource-loading { position: absolute; z-index: 2; inset: 0; min-height: 100%; box-sizing: border-box; margin: 0; }
 .domain-detail.resource-detail-loading > :not(.detail-resource-loading) { visibility: hidden; }
+.domain-detail.resource-detail-revealed > .domain-header,
+.domain-detail.resource-detail-revealed > .domain-tabs,
+.domain-detail.resource-detail-revealed > .card-detail-section-heading { animation: resource-record-pop .42s cubic-bezier(.22,.8,.25,1) both; will-change: transform, opacity; }
+.domain-detail.resource-detail-revealed > .domain-tabs { animation-delay: .05s; }
+.domain-detail.resource-detail-revealed > .card-detail-section-heading { animation-delay: .1s; }
+.domain-detail.resource-detail-revealed > .domain-metrics > div,
+.domain-detail.resource-detail-revealed > .domain-fields > div { animation: resource-record-pop .42s cubic-bezier(.22,.8,.25,1) both; will-change: transform, opacity; }
+.domain-detail.resource-detail-revealed > .domain-metrics > div:nth-child(1) { animation-delay: .1s; }
+.domain-detail.resource-detail-revealed > .domain-metrics > div:nth-child(2) { animation-delay: .15s; }
+.domain-detail.resource-detail-revealed > .domain-metrics > div:nth-child(3) { animation-delay: .2s; }
+.domain-detail.resource-detail-revealed > .domain-fields > div:nth-child(1) { animation-delay: .25s; }
+.domain-detail.resource-detail-revealed > .domain-fields > div:nth-child(2) { animation-delay: .3s; }
+.domain-detail.resource-detail-revealed > .domain-fields > div:nth-child(3) { animation-delay: .35s; }
+.domain-detail.resource-detail-revealed .domain-list > .domain-list-row { animation: resource-record-pop .42s cubic-bezier(.22,.8,.25,1) both; will-change: transform, opacity; }
+.domain-detail.resource-detail-revealed .domain-list > .domain-list-row:nth-child(2) { animation-delay: .05s; }
+.domain-detail.resource-detail-revealed .domain-list > .domain-list-row:nth-child(3) { animation-delay: .1s; }
+.domain-detail.resource-detail-revealed .domain-list > .domain-list-row:nth-child(4) { animation-delay: .15s; }
+.domain-detail.resource-detail-revealed .domain-list > .domain-list-row:nth-child(5) { animation-delay: .2s; }
+.domain-detail.resource-detail-revealed .domain-list > .domain-list-row:nth-child(6) { animation-delay: .25s; }
+.domain-detail.resource-detail-revealed .domain-list > .domain-list-row:nth-child(7) { animation-delay: .3s; }
 .domain-header { display: flex; align-items: center; gap: 20px; padding: 0 0 28px; border: 0; }
 .domain-icon { display: grid; place-items: center; flex: 0 0 64px; width: 64px; height: 64px; border: 1px solid #454650; border-radius: 14px; background: #303139; color: #ff6745; box-shadow: none; font-size: 29px; }
 .domain-kicker { display: none; }
@@ -10,6 +30,12 @@
 .domain-tabs { display: flex; gap: 4px; margin: 22px 0 20px; padding: 4px 0 0; border-bottom: 1px solid #41424b; overflow-x: auto; }
 .domain-tabs button { padding: 9px 12px; border: 0; border-radius: 7px 7px 0 0; background: transparent; color: #aeb0bb; font: 700 11px Inter, sans-serif; white-space: nowrap; cursor: pointer; }
 .domain-tabs button.active, .domain-tabs button:hover { background: #303139; color: #ff6745; }
+.account-detail > .domain-tabs { display: none; }
+.account-detail { display: block !important; }
+.account-detail > .domain-header,
+.account-detail > .domain-section { width: 100%; box-sizing: border-box; }
+.account-detail .domain-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.account-detail .domain-metrics strong { white-space: nowrap; }
 .domain-section { margin-top: var(--instance-section-gap, 30px); }
 .domain-section-heading { display: flex; align-items: center; gap: 9px; margin-bottom: var(--instance-section-heading-gap, 18px); color: #f6f6f8; }
 .domain-section-heading .material-symbols-outlined { color: #ff6745; font-size: 20px; }
@@ -32,6 +58,8 @@
 .domain-list-row small, .domain-empty { color: #b1b1bd; }
 .domain-list-row small { margin-top: 4px; font-size: 10px; }
 .domain-list-row b { font-size: 12px; white-space: nowrap; }
+.invoice-list-total { display: inline-flex; align-items: center; justify-content: flex-end; gap: 10px; margin-left: auto; }
+.invoice-status-tag { display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; border: 1px solid #536171; border-radius: 999px; background: #303b47; color: #cbd5e1; font-size: 9px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; white-space: nowrap; }
 .domain-empty { padding: 24px; border: 1px dashed #4a4c56; border-radius: 10px; background: #292b33; font-size: 12px; text-align: center; }
 
 .entries-active > .domain-section:not(.entries-query-section) { display: none; }
@@ -53,7 +81,7 @@
   .domain-tabs { margin-top: 18px; }
   .entry-period-form { grid-template-columns: 1fr; }
   .entry-search-button { width: 100%; }
-  .detail-resource-loading { top: 170px; right: 19px; left: 19px; min-height: 220px; }
+  .detail-resource-loading { inset: 0; min-height: 100%; }
 }
 .invoices-active > .domain-metrics,
 .invoices-active > .domain-fields { display: none; }
@@ -84,13 +112,46 @@
 .invoice-month-picker label:last-child select { min-width:82px; }
 .standalone-month-picker { margin:12px 0 0; }
 .invoices-active { display:flex; flex-direction:column; align-items:stretch; }
+.invoice-search-button { display:inline-flex; align-items:center; justify-content:center; align-self:flex-start; gap:7px; min-height:40px; margin-top:16px; padding:0 14px; border:0; border-radius:8px; background:#ed3114; color:#fff; font:800 10px Inter,sans-serif; letter-spacing:.2px; cursor:pointer; }
+.invoice-search-button .material-symbols-outlined { font-size:17px; }
 .invoices-active > .domain-header { order:1; }
 .invoices-active > .domain-tabs { order:2; }
 .invoices-active > .standalone-month-picker { order:3; }
 .invoices-active > .card-invoices-section { order:4; }
 .invoices-active > .standalone-month-picker { display:grid; grid-template-columns:auto auto auto; justify-content:start; align-items:center; width:100%; box-sizing:border-box; margin:18px 0 0; padding:0; border:0; background:transparent; gap:7px; }
 .standalone-month-picker > strong { grid-column:1 / -1; }
+.invoice-period-presets { grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:7px; margin-top:3px; }
+.invoice-period-presets button { padding:7px 10px; border:1px solid #454650; border-radius:7px; background:#22242b; color:#c9cbd2; font:700 10px Inter,sans-serif; cursor:pointer; }
+.invoice-period-presets button:hover { border-color:#ed3114; color:#ff8b73; }
+.invoices-active { display:grid; grid-template-columns:max-content max-content minmax(0,1fr); justify-content:stretch; align-content:start; align-items:end; column-gap:12px; width:100%; min-height:100%; box-sizing:border-box; }
+.invoices-active > .domain-header,
+.invoices-active > .domain-tabs,
+.invoices-active > .card-invoices-section { grid-column:1 / -1; }
+.invoices-active > .card-invoices-section { display:none; }
+.invoice-click-list,.invoice-detail-section { grid-column:1 / -1; }
+.invoice-list-button { width:100%; border:1px solid #41434d; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.invoice-list-button:hover { border-color:#ed3114; }
+.overview-next-invoice { grid-column:1 / -1; }
+.overview-next-invoice > .domain-list { display:none; }
+.overview-invoice-click-list { grid-column:1 / -1; margin-top:8px; }
+.invoices-active > .domain-tabs { width:100%; box-sizing:border-box; }
+.invoices-active > .standalone-month-picker { grid-column:1; grid-row:3; width:auto; align-self:end; }
+.invoices-active > .standalone-month-picker { display:none !important; }
+.invoice-range-picker { grid-column:1; grid-row:3; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; min-width:0; width:100%; align-self:end; }
+.invoice-range-picker label { display:flex; flex-direction:column; gap:6px; color:#aeb0bb; font:800 10px Inter,sans-serif; letter-spacing:.05em; }
+.invoice-range-picker input { min-width:0; box-sizing:border-box; min-height:38px; padding:0 10px; border:1px solid #454650; border-radius:8px; outline:0; background:#292b33; color:#f6f6f8; font:700 11px Inter,sans-serif; color-scheme:dark; }
+.invoice-range-picker input:focus { border-color:#ed3114; }
+.invoice-range-picker .invoice-period-presets { grid-column:1 / -1; margin-top:0; }
+.invoices-active > .invoice-search-button { grid-column:1 / -1; grid-row:4; align-self:start; justify-self:start; width:max-content; margin:10px 0 0; white-space:nowrap; }
+.invoices-active > .invoice-search-button { order:3; }
+.invoices-active > .invoice-click-list,
+.invoices-active > .invoice-detail-section { order:4; grid-row:5; }
+.invoices-active { grid-template-columns:minmax(0,1fr) auto; }
+.invoices-active > .standalone-month-picker { min-width:0; width:100%; }
+.invoice-period-presets { min-width:0; max-width:100%; }
+.invoice-period-presets button { white-space:nowrap; }
 @media (max-width:700px) { .card-detail:not(.invoices-active) { grid-template-columns:1fr; } }
+@media (max-width:700px) { .invoices-active { grid-template-columns:1fr; } .invoices-active > .invoice-range-picker,.invoices-active > .invoice-search-button { grid-column:1; grid-row:auto; width:100%; } .invoices-active > .invoice-search-button { margin-top:12px; } }
 .card-credit-detail > .domain-metrics > div:nth-child(3),
 .card-credit-detail > .domain-metrics > div:nth-child(2),
 .card-credit-detail > .domain-fields > div:nth-child(3),

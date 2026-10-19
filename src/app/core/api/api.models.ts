@@ -18,7 +18,7 @@ export interface BankAccountResponse extends BankAccountRequest { id?: string; c
 
 export interface MovementRequest { valorTotal: number; metodoPagamento: MovementMethod; categoriaId: string; dataLancamento?: string; descricao?: string; ehRecorrente?: boolean; quantidadeParcelas?: number; cartaoId?: string; }
 export interface MovementResponse { id?: string; valorTotal?: number; dataLancamento?: string; descricao?: string; metodoPagamento?: MovementMethod; ehRecorrente?: boolean; qntParcelas?: number; categoriaId?: string; contaBancariaId?: string; }
-export interface EntryResponse { valor?: number; dataLancamento?: string; descricao?: string; }
+export interface EntryResponse { id?: string; valor?: number; valorTotal?: number; dataLancamento?: string; descricao?: string; categoriaId?: string; metodoPagamento?: MovementMethod; }
 export interface CategoryRequest { nome: string; tipo: CategoryType; cor: string; icone: string; }
 export interface BudgetRequest { valorLimite: number; valorCorrente?: number; }
 export interface BudgetResponse { id?: string; mesReferencia?: string; valorLimite?: number; valorCorrente?: number; categoria?: string; }
@@ -28,4 +28,4 @@ export interface CardCreditRequest { limiteCredito: number; diaFechamento: numbe
 export interface CardVoucherRequest { tipoVoucher: "VA_VR" | "CREDITO_VOUNCHER"; valorRecarga: number; diaRecarga: number; saldoCorrente?: number; }
 export interface CardRequest { tipoCartao: CardType; contaBancariaId: string; apelido: string; cartaoCredito?: CardCreditRequest; cartaoVoucher?: CardVoucherRequest; }
 export interface CardResponse { id?: string; apelido?: string; contaBancariaId?: string; tipoCartao?: CardType | "VA_VR" | "CREDITO_VOUNCHER"; limiteCredito?: number; diaFechamento?: number; diaVencimento?: number; diaRecarga?: number; valorRecarga?: number; saldoCorrente?: number; }
-export interface InvoiceResponse { id?: string; valorTotal?: number; dataReferencia?: string; status?: InvoiceStatus; cartaoDeCreditoId?: string; }
+export interface InvoiceResponse { id?: string; valorTotal?: number; dataReferencia?: string; status?: InvoiceStatus; cartaoDeCreditoId?: string; lancamentos?: EntryResponse[]; }

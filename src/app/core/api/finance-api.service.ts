@@ -54,6 +54,7 @@ export class FinanceApiService {
   listCards(accountId: string): Observable<CardResponse[]> { return this.http.get<CardResponse[]>(`${this.baseUrl}/cartoes/${encodeURIComponent(accountId)}`); }
   createCard(body: CardRequest): Observable<CardResponse> { return this.http.post<CardResponse>(`${this.baseUrl}/cartoes`, body); }
   listInvoices(cardId: string, period: PeriodRequest): Observable<InvoiceResponse[]> { return this.periodGet<InvoiceResponse[]>(`/cartoes/${encodeURIComponent(cardId)}/faturas`, period); }
+  getInvoice(invoiceId: string): Observable<InvoiceResponse> { return this.http.get<InvoiceResponse>(`${this.baseUrl}/cartoes/faturas/${encodeURIComponent(invoiceId)}`); }
 
   private periodGet<T>(path: string, period: PeriodRequest): Observable<T> {
     const params = new HttpParams().set("dataInicial", period.dataInicial).set("dataFinal", period.dataFinal);

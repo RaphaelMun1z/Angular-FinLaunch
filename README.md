@@ -6,20 +6,18 @@
 
 ## Sobre o projeto
 
-O FinLaunch é uma experiência de gestão financeira criada para tornar o acompanhamento da vida financeira mais simples, claro e organizado.
+O FinLaunch e uma experiencia de gestao financeira criada para tornar o acompanhamento da vida financeira mais simples, claro e organizado.
 
-A proposta é reunir, em um só lugar, informações importantes como movimentações, categorias, contas, cartões, investimentos, metas e orçamentos — ajudando cada pessoa a entender melhor suas escolhas e planejar os próximos passos.
+A aplicacao reune movimentacoes, categorias, contas, cartoes, investimentos, metas e orcamentos em uma unica experiencia.
 
-## A ideia
+## O que o FinLaunch oferece
 
-Finanças pessoais não precisam ser confusas. O FinLaunch combina uma apresentação visual limpa com informações objetivas para que registrar, consultar e acompanhar o dinheiro seja uma tarefa mais tranquila no dia a dia.
+- Visao organizada da vida financeira;
+- Acompanhamento de entradas e saidas;
+- Controle por categorias e orcamentos;
+- Acompanhamento de metas e investimentos;
+- Gestao de contas bancarias e cartoes.
 
-## O que o FinLaunch busca oferecer
+## Documentacao da API
 
-- Uma visão organizada da vida financeira.
-- Acompanhamento de entradas e saídas.
-- Controle por categorias e orçamentos.
-- Mais clareza para acompanhar metas e decisões.
-- Uma experiência consistente, acessível e agradável de usar.
-
-> FinLaunch: mais clareza para suas decisões financeiras.
+Os contratos e pendencias esperados no backend estao documentados em [BACKEND_CONTRACT.md](BACKEND_CONTRACT.md).

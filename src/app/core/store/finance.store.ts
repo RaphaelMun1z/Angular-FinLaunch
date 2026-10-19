@@ -141,11 +141,43 @@ export const FinanceStore = signalStore(
       patchState(store, { loading: true, error: null });
       api.listInvoices(cardId, period).subscribe({
         next: (items) => {
-          const records = items.filter((item) => item.id !== undefined && item.valorTotal !== undefined && item.dataReferencia !== undefined).map((item) => ({ id: item.id!, apiId: item.id!, title: `Fatura ${item.dataReferencia!}`, category: item.status ?? "", amount: item.valorTotal!, date: item.dataReferencia!, type: "expense" as const, status: item.status }));
+          const records = items.filter((item) => item.id !== undefined && item.valorTotal !== undefined && item.dataReferencia !== undefined).map((item) => ({ id: item.id!, apiId: item.id!, title: `Fatura ${formatMonthYear(item.dataReferencia!)}`, category: item.status ?? "", amount: item.valorTotal!, date: item.dataReferencia!, type: "expense" as const, status: item.status }));
           patchState(store, { sections: { ...store.sections(), invoices: { ...store.sections().invoices, records } }, loading: false, error: null });
         },
         error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
       });
+    },
+    loadInvoiceDetail(invoiceId: string): Observable<FinanceRecord | null> {
+      patchState(store, { loading: true, error: null });
+      return api.getInvoice(invoiceId).pipe(
+        map((item) => {
+          if (item.id === undefined || item.valorTotal === undefined || item.dataReferencia === undefined) {
+            patchState(store, { loading: false, error: "A API nao retornou os dados necessarios da fatura." });
+            return null;
+          }
+          const movements = (item.lancamentos ?? [])
+            .map((entry) => {
+              const amount = entry.valor ?? entry.valorTotal;
+              if (amount === undefined || entry.dataLancamento === undefined) return null;
+              return {
+                title: entry.descricao?.trim() || "Lançamento",
+                category: entry.categoriaId ?? "Lançamento",
+                amount,
+                date: entry.dataLancamento,
+                type: amount >= 0 ? "income" as const : "expense" as const,
+              };
+            })
+            .filter((movement): movement is NonNullable<typeof movement> => movement !== null);
+          const record: FinanceRecord = { id: item.id, apiId: item.id, title: `Fatura ${formatMonthYear(item.dataReferencia)}`, category: item.status ?? "", amount: item.valorTotal, date: item.dataReferencia, type: "expense", status: item.status, accountId: item.cartaoDeCreditoId };
+          record.movements = movements;
+          patchState(store, { loading: false, error: null });
+          return record;
+        }),
+        catchError((error: unknown) => { patchState(store, { loading: false, error: toUserError(error) }); return of(null); }),
+      );
+    },
+    clearInvoices(): void {
+      patchState(store, { sections: { ...store.sections(), invoices: { ...store.sections().invoices, records: [] } } });
     },
     navigate(active: SectionKey): void { patchState(store, { active, selectedId: null, query: "", accountTab: "overview", cardTab: "overview", categoryTab: "overview", editingId: null }); },
     setActiveAccountId(activeAccountId: string | null): void { patchState(store, { activeAccountId }); },
@@ -259,6 +291,13 @@ function mapApiSections(accounts: BankAccountResponse[], cards: CardResponse[], 
   const goalRecords = goals.filter((item) => item.id !== undefined && item.objetivo !== undefined && item.valorAlvo !== undefined && item.dataConclusaoPrevista !== undefined).map((item) => ({ id: item.id!, apiId: item.id!, title: item.objetivo!, category: "Meta financeira", amount: item.valorAlvo!, targetAmount: item.valorAlvo, accumulatedAmount: item.valorAcumulado, dueDate: item.dataConclusaoPrevista, date: item.dataConclusaoPrevista!, type: "income" as const }));
   const current = initialState.sections;
   return { ...current, accounts: { ...current.accounts, records: accountRecords }, categories: { ...current.categories, records: categoryRecords }, budgets: { ...current.budgets, records: budgetRecords }, cards: { ...current.cards, records: cardRecords }, cardCredit: { ...current.cardCredit, records: cardRecords.filter((record) => record.category === "CREDITO") }, cardDebit: { ...current.cardDebit, records: cardRecords.filter((record) => record.category === "DEBITO") }, cardVoucher: { ...current.cardVoucher, records: cardRecords.filter((record) => record.category === "VOUCHER") }, investments: { ...current.investments, records: investmentRecords }, goals: { ...current.goals, records: goalRecords } };
+}
+
+function formatMonthYear(value: string): string {
+  const date = new Date(`${value}-01T12:00:00`);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(date);
 }
 
 function mapCardRecords(cards: CardResponse[]): FinanceRecord[] {

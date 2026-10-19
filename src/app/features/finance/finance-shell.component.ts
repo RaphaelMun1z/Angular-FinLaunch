@@ -34,6 +34,7 @@ import {
 import { FinanceHeaderComponent } from "../../layout/header/finance-header.component";
 import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.component";
 import { CurrencyInputDirective } from "../../shared/directives/currency-input.directive";
+import { DatePickerComponent } from "../../shared/components/date-picker.component";
 @Component({
   selector: "app-finance-shell",
   standalone: true,
@@ -46,6 +47,7 @@ import { CurrencyInputDirective } from "../../shared/directives/currency-input.d
     FinanceHeaderComponent,
     FinanceSidebarComponent,
     CurrencyInputDirective,
+    DatePickerComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./finance-shell.component.scss",
@@ -183,9 +185,11 @@ import { CurrencyInputDirective } from "../../shared/directives/currency-input.d
             [class.accounts-mode]="active() === 'accounts'"
             [class.cards-mode]="cardSectionActive()"
             [class.statements-mode]="active() === 'statements'"
-            [class.transactions-mode]="active() === 'transactions'"
+            [class.transactions-mode]="active() === 'statements' && statementMode() === 'transactions'"
             [class.investments-mode]="active() === 'investments'"
-            [class.resource-list-revealed]="resourceRevealActive()"
+            [class.resource-list-revealed]="
+              resourceRevealActive() && loadingTarget() === 'list'
+            "
             [class.resource-list-loading]="
               resourceLoadingVisible() && loadingTarget() === 'list'
             "
@@ -257,18 +261,25 @@ import { CurrencyInputDirective } from "../../shared/directives/currency-input.d
                   >
                 }
               </div>
-              @if (active() === "statements" || active() === "transactions") {
-                <button
-                  type="button"
-                  class="statement-search-card"
-                  (click)="openStatementPanel()"
-                >
-                  <span class="statement-search-icon material-symbols-outlined"
-                    >calendar_month</span
+              @if (active() === "statements") {
+                <div class="statement-search-options">
+                  <button
+                    type="button"
+                    class="statement-search-card"
+                    (click)="openStatementPanel('statements')"
                   >
-                  <span><strong>{{ active() === "transactions" ? "Buscar lançamentos por período" : "Buscar movimentações por período" }}</strong></span>
-                  <span class="material-symbols-outlined">chevron_right</span>
-                </button>
+                    <span class="statement-search-icon material-symbols-outlined"
+                      >description</span
+                    >
+                    <span><strong>Buscar Reg. Movimentações por período</strong></span>
+                    <span class="material-symbols-outlined">chevron_right</span>
+                  </button>
+                  <button type="button" class="statement-search-card" (click)="openStatementPanel('transactions')">
+                    <span class="statement-search-icon material-symbols-outlined">swap_vert</span>
+                    <span><strong>Buscar Lançamentos por período</strong></span>
+                    <span class="material-symbols-outlined">chevron_right</span>
+                  </button>
+                </div>
               }
               <div class="list-tools">
                 <div class="search">
@@ -429,6 +440,9 @@ import { CurrencyInputDirective } from "../../shared/directives/currency-input.d
             "
             [class.domain-detail-active]="
               selectedRecord() && active() !== 'categories'
+            "
+            [class.resource-detail-revealed]="
+              resourceRevealActive() && loadingTarget() === 'detail'
             "
           >
             <div
@@ -1113,10 +1127,6 @@ import { CurrencyInputDirective } from "../../shared/directives/currency-input.d
                         placeholder="Ex.: 1,20"
                         required /></label
                     ><label
-                      >Data de início<input
-                        type="date"
-                        formControlName="startDate" /></label
-                    ><label
                       >Valor inicial<input
                         appCurrencyInput
                         type="text"
@@ -1130,7 +1140,10 @@ import { CurrencyInputDirective } from "../../shared/directives/currency-input.d
                         formControlName="currentAmount"
                         inputmode="decimal"
                         placeholder="R$ 0,00"
-                    /></label>
+                    /></label
+                    ><label
+                      >Data de início<app-date-picker
+                        formControlName="startDate" ariaLabel="Data de início"></app-date-picker></label>
                   </div>
                   @if (
                     investmentForm.controls.category.touched &&
@@ -1173,11 +1186,14 @@ import { CurrencyInputDirective } from "../../shared/directives/currency-input.d
                 </form>
               </div>
             }
-            @if ((active() === "statements" || active() === "transactions") && statementPanelOpen()) {
+            @if (active() === "statements" && statementPanelOpen()) {
               <div class="statement-panel">
                 <div class="statement-panel-heading">
                   <div>
-                    <h2>{{ activeAccountTitle() }}</h2>
+                    <h2>
+                      {{ statementMode() === "transactions" ? "Lançamentos do banco" : "Registro de movimentações do banco" }}
+                      <span class="accent">{{ activeAccountTitle() }}</span>
+                    </h2>
                   </div>
                   <button
                     type="button"
@@ -1194,22 +1210,27 @@ import { CurrencyInputDirective } from "../../shared/directives/currency-input.d
                   (ngSubmit)="searchStatement()"
                 >
                   <label
-                    >Data inicial *<input
-                      type="date"
-                      formControlName="from" /></label
+                    >Data inicial *<input class="calendar-date-input" type="date" formControlName="from" /></label
                   ><label
-                    >Data final *<input
-                      type="date"
-                      formControlName="to" /></label
+                    >Data final *<input class="calendar-date-input" type="date" formControlName="to" /></label
                   ><button
                     type="submit"
                     class="primary-btn"
                     [disabled]="statementPeriodForm.invalid || store.loading()"
                   >
                     <span class="material-symbols-outlined">search</span
-                    >{{ active() === "transactions" ? "CONSULTAR LANÇAMENTOS" : "CONSULTAR MOVIMENTAÇÕES" }}
+                    >{{ statementMode() === "transactions" ? "CONSULTAR LANÇAMENTOS" : "CONSULTAR REG. MOVIMENTAÇÕES" }}
                   </button>
                 </form>
+                <div class="statement-period-presets" aria-label="Períodos rápidos">
+                  <span>Períodos rápidos</span>
+                  <button type="button" (click)="applyStatementPeriodPreset('current')">Este mês</button>
+                  <button type="button" (click)="applyStatementPeriodPreset('previous3')">Últimos 3 meses</button>
+                  <button type="button" (click)="applyStatementPeriodPreset('previous6')">Últimos 6 meses</button>
+                  <button type="button" (click)="applyStatementPeriodPreset('next3')">Próximos 3 meses</button>
+                  <button type="button" (click)="applyStatementPeriodPreset('next6')">Próximos 6 meses</button>
+                  <button type="button" (click)="applyStatementPeriodPreset('next12')">Próximos 12 meses</button>
+                </div>
                 @if (
                   statementPeriodForm.value.from &&
                   statementPeriodForm.value.to &&
@@ -1314,24 +1335,64 @@ import { CurrencyInputDirective } from "../../shared/directives/currency-input.d
               </div>
             } @else if (selectedRecord(); as record) {
               @if (active() !== "categories") {
-                <app-finance-record-detail
-                  [section]="active()"
-                  [record]="record"
-                  [loading]="
-                    resourceLoadingVisible() && loadingTarget() === 'detail'
-                  "
-                  [loadingActive]="store.loading()"
-                  [accountTab]="store.accountTab()"
-                  (accountTabChange)="setAccountTab($event)"
-                  [entryPeriod]="entryPeriodForm.getRawValue()"
-                  (entryPeriodChange)="updateEntryPeriod($event)"
-                  (entrySearch)="searchAccountEntries()"
-                  [cardTab]="store.cardTab()"
-                  [invoices]="store.sections().invoices.records"
-                  [invoiceMonth]="invoiceMonth()"
-                  (cardTabChange)="setCardTab($event)"
-                  (invoiceMonthChange)="setInvoiceMonth($event)"
-                />
+                @if (invoiceDetail(); as invoice) {
+                  <div class="invoice-detail-page">
+                    <div class="invoice-detail-header">
+                      <div class="invoice-detail-icon"><span class="material-symbols-outlined">receipt_long</span></div>
+                      <div><h2>{{ invoice.title }}</h2></div>
+                      <button type="button" class="invoice-detail-close" (click)="closeInvoiceDetail()" aria-label="Fechar detalhes da fatura" title="Fechar">
+                        <span class="material-symbols-outlined">close</span>
+                      </button>
+                    </div>
+                    <div class="invoice-detail-heading"><span class="material-symbols-outlined">description</span><strong>Detalhes da fatura</strong></div>
+                    <div class="invoice-detail-metrics">
+                      <div><span>VALOR TOTAL</span><strong>{{ money(invoice.amount) }}</strong></div>
+                      <div><span>STATUS</span><strong>{{ invoice.status ?? "Status indisponivel" }}</strong></div>
+                      <div><span>REFERENCIA</span><strong>{{ monthReference(invoice.date) }}</strong></div>
+                    </div>
+                    <div class="invoice-detail-heading"><span class="material-symbols-outlined">list_alt</span><strong>Lançamentos da fatura</strong></div>
+                    <div class="invoice-detail-movements">
+                      @for (movement of invoice.movements ?? []; track movement.title + movement.date) {
+                        <div class="invoice-detail-movement">
+                          <small class="invoice-detail-movement-date">{{ dateReference(movement.date) }}</small>
+                          <div>
+                            <strong>{{ movement.title }}</strong>
+                          </div>
+                          <b [class.positive]="movement.type === 'income'">{{ money(movement.amount) }}</b>
+                        </div>
+                      } @empty {
+                        <div class="invoice-detail-empty">Nenhum lançamento nesta fatura.</div>
+                      }
+                    </div>
+                  </div>
+                } @else {
+                  <app-finance-record-detail
+                    [section]="active()"
+                    [record]="record"
+                    [loading]="
+                      resourceLoadingVisible() && loadingTarget() === 'detail'
+                    "
+                    [loadingActive]="store.loading()"
+                    [reveal]="
+                      resourceRevealActive() && loadingTarget() === 'detail'
+                    "
+                    [accountTab]="store.accountTab()"
+                    (accountTabChange)="setAccountTab($event)"
+                    [entryPeriod]="entryPeriodForm.getRawValue()"
+                    (entryPeriodChange)="updateEntryPeriod($event)"
+                    (entrySearch)="searchAccountEntries()"
+                    [cardTab]="store.cardTab()"
+                    [invoices]="store.sections().invoices.records"
+                    [invoiceMonth]="invoiceMonth()"
+                    [invoicePeriod]="invoicePeriodForFilter()"
+                    (cardTabChange)="setCardTab($event)"
+                    (invoiceMonthChange)="setInvoiceMonth($event)"
+                    (invoicePreset)="applyInvoicePeriodPreset($event)"
+                    (invoicePeriodChange)="setInvoicePeriod($event)"
+                    (invoiceSearch)="searchInvoices()"
+                    (invoiceSelect)="openInvoiceDetail($event)"
+                  />
+                }
               }
               @if (active() === "categories") {
                 <div class="category-detail-view">
@@ -2092,6 +2153,7 @@ import { CurrencyInputDirective } from "../../shared/directives/currency-input.d
               </div>
             }
           </div>
+          <div class="movement-card-row">
           @if (
             movementForm.controls.method.value === "CARTAO_CREDITO" ||
             movementForm.controls.method.value === "CARTAO_DEBITO"
@@ -2111,19 +2173,7 @@ import { CurrencyInputDirective } from "../../shared/directives/currency-input.d
               <small class="field-error">Selecione um cartão bancário.</small>
             }
           }
-          <label>Data<input formControlName="date" type="date" /></label>
-          <label
-            >Descrição<textarea
-              formControlName="description"
-              maxlength="120"
-              rows="4"
-            ></textarea>
-          </label>
-          <label class="movement-check"
-            ><input formControlName="recurring" type="checkbox" />Movimentação
-            recorrente</label
-          >
-          @if (movementForm.controls.recurring.value) {
+          @if (movementForm.controls.method.value === "CARTAO_CREDITO") {
             <label
               >Quantidade de parcelas<input
                 formControlName="installments"
@@ -2138,6 +2188,42 @@ import { CurrencyInputDirective } from "../../shared/directives/currency-input.d
               <small class="field-error">Informe ao menos uma parcela.</small>
             }
           }
+          </div>
+          <label
+            >Descrição<textarea
+              formControlName="description"
+              maxlength="120"
+              rows="4"
+            ></textarea>
+          </label>
+          <label class="movement-check"
+            ><input formControlName="recurring" type="checkbox" />Movimentação
+            recorrente</label
+          >
+          @if (
+            movementForm.controls.recurring.value ||
+            (movementForm.controls.method.value === "CARTAO_CREDITO" &&
+              movementForm.controls.method.value !== "CARTAO_CREDITO")
+          ) {
+            <label
+              >Quantidade de parcelas{{
+                movementForm.controls.method.value === "CARTAO_CREDITO"
+                  ? " (cartão de crédito)"
+                  : ""
+              }}<input
+                formControlName="installments"
+                type="number"
+                min="1"
+                step="1"
+            /></label>
+            @if (
+              movementForm.controls.installments.touched &&
+              movementForm.controls.installments.invalid
+            ) {
+              <small class="field-error">Informe ao menos uma parcela.</small>
+            }
+          }
+          <label>Data<app-date-picker formControlName="date" ariaLabel="Data da movimentação"></app-date-picker></label>
           @if (
             movementForm.controls.type.invalid &&
             movementForm.controls.type.touched
@@ -2222,15 +2308,15 @@ import { CurrencyInputDirective } from "../../shared/directives/currency-input.d
                   type="text"
                   inputmode="decimal"
                   required /></label
-              ><label
-                >Data *<input formControlName="date" type="date" required
-              /></label>
+              >
             </div>
             <label
               >Categoria *<input formControlName="category" required /></label
             ><label
               >Observações<textarea formControlName="notes" rows="3"></textarea>
             </label>
+            <label
+              >Data *<app-date-picker formControlName="date" ariaLabel="Data do lançamento"></app-date-picker></label>
             <div class="modal-actions">
               <button
                 type="button"
@@ -2317,6 +2403,11 @@ export class FinanceShellComponent {
       : [];
   });
   readonly currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+  readonly nextMonth = (() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() + 1);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  })();
   readonly currentDate = (() => {
     const date = new Date();
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -2387,6 +2478,7 @@ export class FinanceShellComponent {
   private loadingTimer: ReturnType<typeof setTimeout> | null = null;
   private resourceRevealTimer: ReturnType<typeof setTimeout> | null = null;
   private createdRecordTimer: ReturnType<typeof setTimeout> | null = null;
+  private detailRevealTimer: ReturnType<typeof setTimeout> | null = null;
   triggerCreatedRecordPop(recordId: string | undefined): void {
     if (!recordId) return;
     if (this.createdRecordTimer !== null) clearTimeout(this.createdRecordTimer);
@@ -2395,6 +2487,17 @@ export class FinanceShellComponent {
       () => this.createdRecordId.set(null),
       700,
     );
+  }
+  private triggerDetailReveal(): void {
+    if (this.detailRevealTimer !== null) clearTimeout(this.detailRevealTimer);
+    this.resourceRevealActive.set(false);
+    this.detailRevealTimer = setTimeout(() => {
+      this.resourceRevealActive.set(true);
+      this.detailRevealTimer = setTimeout(
+        () => this.resourceRevealActive.set(false),
+        700,
+      );
+    }, 0);
   }
   private newRecordId(
     section: SectionKey,
@@ -2442,8 +2545,11 @@ export class FinanceShellComponent {
   readonly investmentFormOpen = signal(false);
   readonly investmentSaving = signal(false);
   readonly cardDays = Array.from({ length: 31 }, (_, index) => index + 1);
-  readonly invoiceMonth = signal(this.currentMonth);
+  readonly invoiceMonth = signal(this.nextMonth);
+  readonly invoicePeriodRange = signal<{ dataInicial: string; dataFinal: string } | null>(null);
+  readonly invoiceDetail = signal<FinanceRecord | null>(null);
   readonly statementPanelOpen = signal(false);
+  readonly statementMode = signal<"statements" | "transactions">("statements");
   readonly statementPeriodForm = this.fb.nonNullable.group({
     from: this.currentPeriod().dataInicial,
     to: this.currentPeriod().dataFinal,
@@ -2456,7 +2562,7 @@ export class FinanceShellComponent {
     () => this.store.sections().statements.records,
   );
   readonly periodSearchRecords = computed(() =>
-    this.active() === "transactions"
+    this.statementMode() === "transactions"
       ? this.store.sections().transactions.records
       : this.statementRecords(),
   );
@@ -2682,7 +2788,7 @@ export class FinanceShellComponent {
   navigate(item: NavItem): void {
     if (this.activeAccountId() === null && this.isAccountDependent(item.key))
       return;
-    if (item.key !== "statements" && item.key !== "transactions")
+    if (item.key !== "statements")
       this.statementPanelOpen.set(false);
     if (this.categoryFormOpen() && !this.categorySaving())
       this.closeCategoryForm();
@@ -2737,23 +2843,15 @@ export class FinanceShellComponent {
     if (this.accountFormOpen()) this.closeAccountForm();
     if (this.cardFormOpen()) this.closeCardForm();
     const previousId = this.store.selectedId();
+    this.invoiceDetail.set(null);
     this.store.selectRecord(id);
-    if (this.cardSectionActive()) this.store.setCardTab("overview");
+    if (previousId !== id) this.triggerDetailReveal();
+    if (this.active() === "accounts") this.store.setAccountTab("overview");
+    if (this.cardSectionActive()) this.setCardTab("overview");
     if (this.active() === "categories" && previousId !== id) {
       this.store.setCategoryTab("overview");
     }
     const record = this.selectedRecord();
-    if (
-      record?.apiId &&
-      this.cardSectionActive() &&
-      record.cardType === "CREDITO"
-    ) {
-      this.loadingTarget.set("detail");
-      this.store.loadInvoices(
-        record.apiId,
-        this.periodForMonth(this.invoiceMonth()),
-      );
-    }
     if (record?.apiId && this.active() === "categories") {
       this.loadingTarget.set("detail");
       this.store.loadBudgets(record.apiId);
@@ -2770,7 +2868,7 @@ export class FinanceShellComponent {
   }
   reloadRecords(): void {
     this.loadingTarget.set("list");
-    if (this.active() === "transactions") {
+    if (this.active() === "statements" && this.statementMode() === "transactions") {
       this.loadTransactionRecords();
       return;
     }
@@ -2782,8 +2880,9 @@ export class FinanceShellComponent {
     this.loadingTarget.set("list");
     this.store.loadTransactions(accountId, this.currentPeriod());
   }
-  openStatementPanel(): void {
+  openStatementPanel(mode: "statements" | "transactions" = this.statementMode()): void {
     if (!this.activeAccountId()) return;
+    this.statementMode.set(mode);
     this.store.selectRecord(null);
     const period = this.currentPeriod();
     this.statementPeriodForm.reset({
@@ -2793,8 +2892,34 @@ export class FinanceShellComponent {
     this.statementPanelOpen.set(true);
     this.searchStatement();
   }
+  openMovementResult(accountId: string, date: string): void {
+    this.store.setActiveAccountId(accountId);
+    this.store.navigate("statements");
+    this.statementMode.set("statements");
+    this.statementPeriodForm.reset({ from: date, to: date });
+    this.statementPanelOpen.set(true);
+    void this.router.navigate(["/account", accountId, "statements"]);
+    this.searchStatement();
+  }
   closeStatementPanel(): void {
     this.statementPanelOpen.set(false);
+  }
+  applyStatementPeriodPreset(preset: "current" | "previous3" | "previous6" | "next3" | "next6" | "next12"): void {
+    const ranges = {
+      current: [0, 0],
+      previous3: [-3, -1],
+      previous6: [-6, -1],
+      next3: [1, 3],
+      next6: [1, 6],
+      next12: [1, 12],
+    } as const;
+    const [startOffset, endOffset] = ranges[preset];
+    const start = this.monthFromCurrent(startOffset);
+    const end = this.monthFromCurrent(endOffset);
+    this.statementPeriodForm.patchValue({
+      from: this.periodForMonth(start).dataInicial,
+      to: this.periodForMonth(end).dataFinal,
+    });
   }
   searchStatement(): void {
     const accountId = this.activeAccountId();
@@ -2814,7 +2939,7 @@ export class FinanceShellComponent {
       dataInicial: period.from,
       dataFinal: period.to,
     };
-    if (this.active() === "transactions")
+    if (this.statementMode() === "transactions")
       this.store.loadTransactions(accountId, selectedPeriod);
     else this.store.loadAccountMovements(accountId, selectedPeriod);
   }
@@ -2861,27 +2986,64 @@ export class FinanceShellComponent {
   }
   setCardTab(tab: "overview" | "invoices"): void {
     this.store.setCardTab(tab);
+    this.invoiceDetail.set(null);
+    if (tab === "invoices") {
+      this.store.clearInvoices();
+      this.invoicePeriodRange.set(null);
+    }
     const record = this.selectedRecord();
-    if (record?.apiId && tab === "invoices") {
+    if (tab === "overview" && record?.apiId && record.cardType === "CREDITO") {
       this.loadingTarget.set("detail");
-      this.store.loadInvoices(
-        record.apiId,
-        this.periodForMonth(this.invoiceMonth()),
-      );
+      this.store.loadInvoices(record.apiId, this.periodForMonth(this.invoiceMonth()));
     }
   }
   setInvoiceMonth(month: string): void {
     if (!month) return;
     this.invoiceMonth.set(month);
+    this.invoicePeriodRange.set(null);
+  }
+  invoicePeriodForFilter(): { from: string; to: string } {
+    const period = this.invoicePeriodRange() ?? this.periodForMonth(this.invoiceMonth());
+    return { from: period.dataInicial, to: period.dataFinal };
+  }
+  setInvoicePeriod(period: { from: string; to: string }): void {
+    if (!period.from || !period.to) return;
+    this.invoicePeriodRange.set({ dataInicial: period.from, dataFinal: period.to });
+    this.invoiceMonth.set(period.from.slice(0, 7));
+  }
+  applyInvoicePeriodPreset(preset: "current" | "previous3" | "previous6" | "next3" | "next6" | "next12"): void {
+    const ranges = {
+      current: [0, 0],
+      previous3: [-3, -1],
+      previous6: [-6, -1],
+      next3: [1, 3],
+      next6: [1, 6],
+      next12: [1, 12],
+    } as const;
+    const [startOffset, endOffset] = ranges[preset];
+    const start = this.monthFromCurrent(startOffset);
+    const end = this.monthFromCurrent(endOffset);
+    this.invoiceMonth.set(start);
+    this.invoicePeriodRange.set({
+      dataInicial: this.periodForMonth(start).dataInicial,
+      dataFinal: this.periodForMonth(end).dataFinal,
+    });
+  }
+  searchInvoices(): void {
     const record = this.selectedRecord();
-    if (
-      record?.apiId &&
-      record.cardType === "CREDITO" &&
-      this.store.cardTab() === "invoices"
-    ) {
-      this.loadingTarget.set("detail");
-      this.store.loadInvoices(record.apiId, this.periodForMonth(month));
-    }
+    if (!record?.apiId || record.cardType !== "CREDITO") return;
+    this.loadingTarget.set("detail");
+    this.store.loadInvoices(record.apiId, this.invoicePeriodRange() ?? this.periodForMonth(this.invoiceMonth()));
+  }
+  openInvoiceDetail(invoice: FinanceRecord): void {
+    if (!invoice.apiId) return;
+    this.loadingTarget.set("detail");
+    this.store.loadInvoiceDetail(invoice.apiId).subscribe((detail) => {
+      if (detail) this.invoiceDetail.set(detail);
+    });
+  }
+  closeInvoiceDetail(): void {
+    this.invoiceDetail.set(null);
   }
   setCategoryTab(tab: CategoryTab): void {
     this.store.setCategoryTab(tab);
@@ -3044,14 +3206,42 @@ export class FinanceShellComponent {
   }
   selectMovementPayment(method: MovementMethod): void {
     this.movementForm.controls.method.setValue(method);
+    if (method !== "CARTAO_CREDITO" && method !== "CARTAO_DEBITO") {
+      this.movementForm.controls.cardId.setValue("");
+    }
     this.movementForm.controls.method.markAsTouched();
+    this.syncMovementConditionalValidation();
     this.paymentPickerOpen.set(false);
   }
   clearMovementPayment(event: Event): void {
     event.stopPropagation();
     this.movementForm.controls.method.setValue("");
+    this.movementForm.controls.cardId.setValue("");
     this.movementForm.controls.method.markAsTouched();
+    this.syncMovementConditionalValidation();
     this.paymentPickerOpen.set(false);
+  }
+  syncMovementConditionalValidation(): void {
+    const method = this.movementForm.controls.method.value;
+    const cardRequired =
+      method === "CARTAO_CREDITO" || method === "CARTAO_DEBITO";
+    const installmentsRequired =
+      this.movementForm.controls.recurring.value ||
+      method === "CARTAO_CREDITO";
+    this.movementForm.controls.cardId.setValidators(
+      cardRequired ? [Validators.required] : [],
+    );
+    this.movementForm.controls.installments.setValidators(
+      installmentsRequired
+        ? [Validators.required, Validators.min(1)]
+        : [Validators.min(1)],
+    );
+    this.movementForm.controls.cardId.updateValueAndValidity({
+      emitEvent: false,
+    });
+    this.movementForm.controls.installments.updateValueAndValidity({
+      emitEvent: false,
+    });
   }
   selectedMovementPayment(): {
     value: MovementMethod;
@@ -3066,6 +3256,7 @@ export class FinanceShellComponent {
   }
   saveMovement(): void {
     if (!this.activeAccountId()) return;
+    this.syncMovementConditionalValidation();
     if (this.movementForm.invalid || this.movementSaving()) {
       this.movementForm.markAllAsTouched();
       return;
@@ -3078,7 +3269,11 @@ export class FinanceShellComponent {
       this.movementForm.controls.cardId.markAsTouched();
       return;
     }
-    if (value.recurring && (!value.installments || value.installments < 1)) {
+    const creditCardPayment = value.method === "CARTAO_CREDITO";
+    if (
+      (value.recurring || creditCardPayment) &&
+      (!value.installments || value.installments < 1)
+    ) {
       this.movementForm.controls.installments.markAsTouched();
       return;
     }
@@ -3091,7 +3286,8 @@ export class FinanceShellComponent {
         ? { descricao: value.description.trim() }
         : {}),
       ehRecorrente: value.recurring,
-      ...(value.recurring && value.installments
+      ...(value.installments &&
+      (value.recurring || (creditCardPayment && value.installments > 1))
         ? { quantidadeParcelas: value.installments }
         : {}),
       ...(cardPayment && value.cardId ? { cartaoId: value.cardId } : {}),
@@ -3100,7 +3296,10 @@ export class FinanceShellComponent {
     this.store.createMovement(value.accountId, body).subscribe({
       next: (created) => {
         this.movementSaving.set(false);
-        if (created) this.closeMovementAside();
+        if (created) {
+          this.closeMovementAside();
+          this.openMovementResult(value.accountId, value.date || this.currentDate);
+        }
       },
       error: () => this.movementSaving.set(false),
     });
@@ -3491,6 +3690,13 @@ export class FinanceShellComponent {
           year: "numeric",
         }).format(date);
   }
+  dateReference(value: string | undefined): string {
+    if (!value) return "Data indisponível";
+    const date = new Date(`${value}T12:00:00`);
+    return Number.isNaN(date.getTime())
+      ? value
+      : new Intl.DateTimeFormat("pt-BR").format(date);
+  }
   categoryIcon(record: FinanceRecord): string {
     const supported = new Set([
       "abc",
@@ -3568,6 +3774,12 @@ export class FinanceShellComponent {
   }
   private currentPeriod(): { dataInicial: string; dataFinal: string } {
     return this.periodForMonth(this.store.overviewSelection().value);
+  }
+  private monthFromCurrent(offset: number): string {
+    const date = new Date();
+    date.setDate(1);
+    date.setMonth(date.getMonth() + offset);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
   }
   private periodForMonth(month: string): {
     dataInicial: string;
