@@ -34,6 +34,7 @@ export class FinanceApiService {
       .set("dataFinal", period.dataFinal);
     return this.http.get<MovementResponse[]>(`${this.baseUrl}/contas-bancarias/${encodeURIComponent(accountId)}/registros-de-movimentacao`, { params });
   }
+  getMovement(movementId: string): Observable<MovementResponse> { return this.http.get<MovementResponse>(`${this.baseUrl}/contas-bancarias/registros-de-movimentacao/${encodeURIComponent(movementId)}`); }
   createMovement(accountId: string, body: MovementRequest): Observable<MovementResponse> { return this.http.post<MovementResponse>(`${this.baseUrl}/contas-bancarias/${encodeURIComponent(accountId)}/registros-de-movimentacao`, body); }
   listEntries(accountId: string, period: PeriodRequest): Observable<EntryResponse[]> { return this.periodGet<EntryResponse[]>(`/contas-bancarias/${encodeURIComponent(accountId)}/lancamentos`, period); }
 

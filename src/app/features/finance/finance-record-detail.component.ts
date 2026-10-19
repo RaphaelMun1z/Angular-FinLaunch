@@ -19,7 +19,7 @@ import { AccountTab, CardTab, FinanceRecord, SectionKey } from "../../core/model
         } @else if (accountTab === 'movements') {
           <section class="domain-section"><div class="domain-section-heading"><span class="material-symbols-outlined">swap_vert</span><strong>Movimentações</strong></div><div class="domain-list">@for (movement of record.movements ?? []; track movement.title + movement.date) { <div class="domain-list-row"><span class="material-symbols-outlined">{{ movement.type === 'income' ? 'south_west' : 'north_east' }}</span><div><strong>{{ movement.title }}</strong><small>{{ movement.category }} · {{ date(movement.date) }}</small></div><b>{{ money(movement.amount) }}</b></div> } @empty { <div class="domain-empty">Nenhuma movimentação disponível para este período.</div> }</div></section>
         } @else {
-          <section class="domain-section"><div class="domain-section-heading"><span class="material-symbols-outlined">receipt_long</span><strong>Lançamentos</strong></div><div class="domain-list">@for (movement of record.movements ?? []; track movement.title + movement.date) { <div class="domain-list-row"><span class="material-symbols-outlined">receipt_long</span><div><strong>{{ movement.title }}</strong><small>{{ movement.category }} · {{ date(movement.date) }}</small></div><b>{{ money(movement.amount) }}</b></div> } @empty { <div class="domain-empty">Nenhum lançamento disponível para este período.</div> }</div></section>
+          <section class="domain-section"><div class="domain-section-heading"><span class="material-symbols-outlined">receipt_long</span><strong>Lançamentos</strong></div><div class="domain-list">@for (movement of record.movements ?? []; track movement.title + movement.date) { <div class="domain-list-row"><span class="material-symbols-outlined">receipt_long</span><div><strong>{{ movement.title }}</strong><small>{{ date(movement.date) }}</small></div><b>{{ money(movement.amount) }}</b></div> } @empty { <div class="domain-empty">Nenhum lançamento disponível para este período.</div> }</div></section>
         }
         @if (section === 'accounts' && accountTab === 'entries') {
           <section class="domain-section entries-query-section">
@@ -33,7 +33,7 @@ import { AccountTab, CardTab, FinanceRecord, SectionKey } from "../../core/model
             <div class="domain-section-heading"><span class="material-symbols-outlined">receipt_long</span><strong>Lançamentos</strong></div>
             <div class="domain-list">
               @for (movement of record.movements ?? []; track movement.title + movement.date) {
-                <div class="domain-list-row"><span class="material-symbols-outlined">receipt_long</span><div><strong>{{ movement.title }}</strong><small>{{ movement.category }} - {{ date(movement.date) }}</small></div><b>{{ money(movement.amount) }}</b></div>
+                <div class="domain-list-row"><span class="material-symbols-outlined">receipt_long</span><div><strong>{{ movement.title }}</strong><small>{{ date(movement.date) }}</small></div><b>{{ money(movement.amount) }}</b></div>
               } @empty { <div class="domain-empty">Nenhum lançamento disponível para este período.</div> }
             </div>
           </section>

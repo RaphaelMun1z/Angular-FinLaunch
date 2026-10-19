@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   HostListener,
   inject,
@@ -10,6 +11,7 @@ import {
 import { CommonModule } from "@angular/common";
 import { ActivatedRoute, Router } from "@angular/router";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { CalendarViewComponent } from "../../shared/components/calendar-view.component";
 import { MonthlyLineChartComponent } from "../../shared/components/monthly-line-chart.component";
 import { FinanceRecordDetailComponent } from "./finance-record-detail.component";
@@ -23,7 +25,7 @@ import {
   MovementMethod,
   MovementRequest,
 } from "../../core/api/api.models";
-import { navigation } from "../../core/models/finance.data";
+import { navigation, sectionFromRouteSegment, sectionRouteSegments } from "../../core/models/finance.data";
 import {
   CategoryTab,
   FinanceRecord,
@@ -271,7 +273,7 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                     <span class="statement-search-icon material-symbols-outlined"
                       >description</span
                     >
-                    <span><strong>Buscar Reg. Movimentações por período</strong></span>
+                    <span><strong>Buscar Registro de movimentações por período</strong></span>
                     <span class="material-symbols-outlined">chevron_right</span>
                   </button>
                   <button type="button" class="statement-search-card" (click)="openStatementPanel('transactions')">
@@ -1204,6 +1206,29 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                     <span class="material-symbols-outlined">close</span>
                   </button>
                 </div>
+                @if (statementDetailLoading()) {
+                  <div class="resource-loading statement-detail-resource-loading" [class.resource-loading-active]="store.loading()">
+                    <span class="material-symbols-outlined">rocket_launch</span>
+                    <strong>Carregando...</strong>
+                  </div>
+                } @else if (statementDetail(); as detail) {
+                  <div class="statement-detail-page statement-detail-revealed">
+                    <div class="statement-detail-heading">
+                      <div class="statement-row-icon" [class.income]="detail.type === 'income'"><span class="material-symbols-outlined">{{ detail.type === 'income' ? 'arrow_upward' : 'arrow_downward' }}</span></div>
+                      <div><h3>{{ detail.title }}</h3></div>
+                      <button type="button" class="statement-detail-close" aria-label="Fechar detalhes do registro" title="Fechar" (click)="closeMovementDetail()"><span class="material-symbols-outlined">close</span></button>
+                    </div>
+                    <div class="statement-detail-metrics">
+                      <div><span>VALOR</span><strong [class.positive]="detail.type === 'income'">{{ money(detail.amount) }}</strong></div>
+                      <div><span>DATA</span><strong>{{ fullDate(detail.date) }}</strong></div>
+                      <div><span>MÉTODO</span><strong>{{ statementPaymentLabel(detail.method) }}</strong></div>
+                      <div><span>CATEGORIA</span><strong>{{ detail.category || 'Não informada' }}</strong></div>
+                      <div><span>RECORRÊNCIA</span><strong>{{ detail.recurring ? 'Recorrente' : 'Avulsa' }}</strong></div>
+                      @if (detail.installments) { <div><span>PARCELAS</span><strong>{{ detail.installments }}</strong></div> }
+                    </div>
+                    @if (detail.notes) { <div class="statement-detail-description"><span>DESCRIÇÃO</span><p>{{ detail.notes }}</p></div> }
+                  </div>
+                } @else {
                 <form
                   class="statement-period-form"
                   [formGroup]="statementPeriodForm"
@@ -1252,7 +1277,7 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                 </div>
                 <div class="statement-list">
                   @for (item of periodSearchRecords(); track item.id) {
-                    <div class="statement-row">
+                    <div class="statement-row" role="button" tabindex="0" (click)="openMovementDetail(item)" (keydown.enter)="openMovementDetail(item)">
                       <div
                         class="statement-row-icon"
                         [class.income]="item.type === 'income'"
@@ -1285,7 +1310,7 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                 </div>
                 <div class="statement-contract-list">
                   @for (item of periodSearchRecords(); track item.id) {
-                    <div class="statement-contract-card">
+                    <div class="statement-contract-card" role="button" tabindex="0" (click)="openMovementDetail(item)" (keydown.enter)="openMovementDetail(item)">
                       <div
                         class="statement-row-icon"
                         [class.income]="item.type === 'income'"
@@ -1299,23 +1324,7 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                       <div class="statement-row-main">
                         <strong>{{ item.title }}</strong
                         ><small
-                          >{{ fullDate(item.date) }} -
-                          {{ statementPaymentLabel(item.method) }}</small
-                        ><small
-                          >{{
-                            item.recurring
-                              ? "Recorrente"
-                              : "Avulsa"
-                          }}{{
-                            item.recurring && item.installments
-                              ? " - " +
-                                item.installments +
-                                " " +
-                                (item.installments === 1
-                                  ? "parcela"
-                                  : "parcelas")
-                              : ""
-                          }}</small
+                          >{{ fullDate(item.date) }}</small
                         >
                       </div>
                       <strong
@@ -1331,6 +1340,7 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                     Informe um periodo e consulte as movimentacoes para visualizar os
                     movimentacoes.
                   </div>
+                }
                 }
               </div>
             } @else if (selectedRecord(); as record) {
@@ -2343,6 +2353,7 @@ export class FinanceShellComponent {
   readonly auth = inject(AuthService);
   readonly router = inject(Router);
   readonly route = inject(ActivatedRoute);
+  readonly destroyRef = inject(DestroyRef);
   readonly fb = inject(FormBuilder);
   private readonly legacyNavigation: NavItem[] = navigation
     .filter((item) => item.key !== "budgets")
@@ -2435,6 +2446,35 @@ export class FinanceShellComponent {
     () => this.activeAccount()?.title ?? "",
   );
   private readonly activeAccountUrlEffect = effect(() => {
+    const requestedSection = sectionFromRouteSegment(this.route.snapshot.paramMap.get("section"));
+    const requestedRecordId = this.route.snapshot.paramMap.get("recordId");
+    const routeCardId = this.route.snapshot.paramMap.get("cardId");
+    const routeInvoiceId = this.route.snapshot.paramMap.get("invoiceId");
+    const routeCardTab: "invoices" | "overview" = this.route.snapshot.paramMap.get("cardId") && this.route.snapshot.url.some((segment) => segment.path === "faturas") ? "invoices" : "overview";
+    if (requestedSection && this.active() !== requestedSection) {
+      this.store.navigate(requestedSection);
+      this.store.loadSection(requestedSection);
+    }
+    if (routeCardId && this.store.sections().cardCredit.records.length === 0) {
+      this.store.loadSection("cardCredit");
+    }
+    if (routeCardId) {
+      if (this.active() !== "cardCredit") this.store.navigate("cardCredit");
+      const card = this.store.sections().cardCredit.records.find((record) => record.apiId === routeCardId);
+      if (card && this.active() === "cardCredit") {
+        if (this.store.selectedId() !== card.id) this.store.selectRecord(card.id);
+        this.store.setCardTab(routeCardTab);
+        if (routeInvoiceId && this.invoiceDetailRequestedId() !== routeInvoiceId) {
+          this.loadInvoiceDetailById(routeInvoiceId);
+        }
+      }
+    }
+    if (requestedRecordId && requestedSection) {
+      const record = this.store.sections()[requestedSection].records.find((item) => item.apiId === requestedRecordId || item.id === requestedRecordId);
+      if (record && this.active() === requestedSection && this.store.selectedId() !== record.id) {
+        this.store.selectRecord(record.id);
+      }
+    }
     const requestedId =
       this.route.snapshot.paramMap.get("accountId") ??
       this.route.snapshot.queryParamMap.get("conta");
@@ -2446,7 +2486,7 @@ export class FinanceShellComponent {
       if (requestedId !== account.apiId) this.updateAccountUrl(account.apiId);
     } else if (!account && requestedId) {
       if (this.activeAccountId() !== null) this.store.setActiveAccountId(null);
-      void this.router.navigate(["/"]);
+      void this.router.navigate(["/visao-geral"]);
     }
   });
   private readonly accountSectionGuardEffect = effect(() => {
@@ -2459,7 +2499,7 @@ export class FinanceShellComponent {
       this.isAccountDependent(this.active())
     ) {
       this.store.navigate("overview");
-      void this.router.navigate(["/"]);
+      void this.router.navigate(["/visao-geral"]);
     }
   });
   readonly movementCategories = computed(() =>
@@ -2548,8 +2588,12 @@ export class FinanceShellComponent {
   readonly invoiceMonth = signal(this.nextMonth);
   readonly invoicePeriodRange = signal<{ dataInicial: string; dataFinal: string } | null>(null);
   readonly invoiceDetail = signal<FinanceRecord | null>(null);
+  readonly invoiceDetailRequestedId = signal<string | null>(null);
   readonly statementPanelOpen = signal(false);
   readonly statementMode = signal<"statements" | "transactions">("statements");
+  readonly statementDetail = signal<FinanceRecord | null>(null);
+  readonly statementDetailLoading = signal(false);
+  private statementDetailRevealTimer: ReturnType<typeof setTimeout> | null = null;
   readonly statementPeriodForm = this.fb.nonNullable.group({
     from: this.currentPeriod().dataInicial,
     to: this.currentPeriod().dataFinal,
@@ -2727,12 +2771,27 @@ export class FinanceShellComponent {
     }));
   });
   constructor() {
+    this.destroyRef.onDestroy(() => {
+      for (const timer of [
+        this.loadingTimer,
+        this.resourceRevealTimer,
+        this.createdRecordTimer,
+        this.detailRevealTimer,
+        this.statementDetailRevealTimer,
+      ]) {
+        if (timer !== null) clearTimeout(timer);
+      }
+    });
     if (this.auth.isAuthenticated()) {
       this.auth.loadUser();
       this.store.loadSection("accounts");
     }
-    this.route.paramMap.subscribe((params) => {
-      const value = params.get("section");
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const rawSection = params.get("section");
+      const value = sectionFromRouteSegment(rawSection) ?? (rawSection && this.isSection(rawSection) ? rawSection : null);
+      const recordId = params.get("recordId");
+      const instanceId = recordId ?? params.get("cardId");
+      if (instanceId) this.loadingTarget.set("detail");
       const accountId =
         params.get("accountId") ??
         this.route.snapshot.queryParamMap.get("conta");
@@ -2746,9 +2805,22 @@ export class FinanceShellComponent {
         this.isSection(value) &&
         (!this.isAccountDependent(value) || this.activeAccountId() || accountId)
       ) {
-        this.store.navigate(value);
-        this.loadingTarget.set("list");
-        this.store.loadSection(value);
+        if (recordId) this.loadingTarget.set("detail");
+        if (this.active() !== value) {
+          this.store.navigate(value);
+          if (!recordId) this.loadingTarget.set("list");
+          this.store.loadSection(value);
+        }
+      }
+      const queryFrom = this.route.snapshot.queryParamMap.get("dataInicial");
+      const queryTo = this.route.snapshot.queryParamMap.get("dataFinal");
+      if (value === "statements" && queryFrom && queryTo) {
+        this.statementMode.set(this.route.snapshot.queryParamMap.get("consulta") === "lancamentos" ? "transactions" : "statements");
+        this.statementPeriodForm.reset({ from: queryFrom, to: queryTo });
+      }
+      if (queryFrom && queryTo && this.route.snapshot.url.some((segment) => segment.path === "faturas")) {
+        this.invoicePeriodRange.set({ dataInicial: queryFrom, dataFinal: queryTo });
+        this.invoiceMonth.set(queryFrom.slice(0, 7));
       }
     });
   }
@@ -2779,6 +2851,28 @@ export class FinanceShellComponent {
   isSection(value: string): value is SectionKey {
     return Object.prototype.hasOwnProperty.call(this.store.sections(), value);
   }
+  sectionRoute(section: SectionKey): string {
+    return sectionRouteSegments[section];
+  }
+  private updatePeriodQuery(params: { dataInicial: string; dataFinal: string; consulta: string }): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: params,
+      queryParamsHandling: "merge",
+      replaceUrl: true,
+    });
+  }
+  updateRecordUrl(recordId: string): void {
+    const accountId = this.activeAccountId();
+    if (this.active() === "cardCredit" && accountId) {
+      this.updateCardUrl(recordId, this.store.cardTab());
+      return;
+    }
+    const commands = accountId && this.isAccountDependent(this.active())
+      ? ["/conta", accountId, this.sectionRoute(this.active()), recordId]
+      : ["/", this.sectionRoute(this.active()), recordId];
+    void this.router.navigate(commands, { replaceUrl: true });
+  }
   isActive(item: NavItem): boolean {
     return (
       this.active() === item.key ||
@@ -2805,10 +2899,10 @@ export class FinanceShellComponent {
       activeAccountId !== null && this.isAccountDependent(item.key);
     void this.router.navigate(
       useAccountRoute
-        ? ["/account", activeAccountId, item.key]
+        ? ["/conta", activeAccountId, this.sectionRoute(item.key)]
         : item.key === "overview"
-          ? ["/"]
-          : [item.key],
+          ? ["/visao-geral"]
+          : [this.sectionRoute(item.key)],
     );
   }
   toggleUserMenu(): void {
@@ -2842,6 +2936,17 @@ export class FinanceShellComponent {
     if (this.categoryFormOpen()) this.closeCategoryForm();
     if (this.accountFormOpen()) this.closeAccountForm();
     if (this.cardFormOpen()) this.closeCardForm();
+    if (this.active() === "cards") {
+      const card = this.store.sections().cards.records.find((record) => record.id === id);
+      const cardSection = card?.cardType === "CREDITO"
+        ? "cardCredit"
+        : card?.cardType === "DEBITO"
+          ? "cardDebit"
+          : card?.cardType === "VOUCHER"
+            ? "cardVoucher"
+            : null;
+      if (cardSection) this.store.navigate(cardSection);
+    }
     const previousId = this.store.selectedId();
     this.invoiceDetail.set(null);
     this.store.selectRecord(id);
@@ -2852,6 +2957,12 @@ export class FinanceShellComponent {
       this.store.setCategoryTab("overview");
     }
     const record = this.selectedRecord();
+    if (record?.apiId && this.active() === "cardCredit") {
+      this.updateCardUrl(record.apiId, this.store.cardTab());
+    }
+    if (record?.apiId && this.active() !== "cardCredit" && this.active() !== "overview") {
+      this.updateRecordUrl(record.apiId);
+    }
     if (record?.apiId && this.active() === "categories") {
       this.loadingTarget.set("detail");
       this.store.loadBudgets(record.apiId);
@@ -2882,15 +2993,45 @@ export class FinanceShellComponent {
   }
   openStatementPanel(mode: "statements" | "transactions" = this.statementMode()): void {
     if (!this.activeAccountId()) return;
+    if (this.statementDetailRevealTimer !== null) clearTimeout(this.statementDetailRevealTimer);
+    this.statementDetailRevealTimer = null;
     this.statementMode.set(mode);
+    this.statementDetail.set(null);
+    this.statementDetailLoading.set(false);
     this.store.selectRecord(null);
-    const period = this.currentPeriod();
+    const queryFrom = this.route.snapshot.queryParamMap.get("dataInicial");
+    const queryTo = this.route.snapshot.queryParamMap.get("dataFinal");
+    const period = queryFrom && queryTo ? { dataInicial: queryFrom, dataFinal: queryTo } : this.currentPeriod();
     this.statementPeriodForm.reset({
       from: period.dataInicial,
       to: period.dataFinal,
     });
     this.statementPanelOpen.set(true);
+    this.updatePeriodQuery({ dataInicial: period.dataInicial, dataFinal: period.dataFinal, consulta: mode === "transactions" ? "lancamentos" : "registros" });
     this.searchStatement();
+  }
+  openMovementDetail(record: FinanceRecord): void {
+    if (this.statementMode() !== "statements" || !record.apiId) return;
+    if (this.statementDetailRevealTimer !== null) clearTimeout(this.statementDetailRevealTimer);
+    const loadingStartedAt = Date.now();
+    this.statementDetail.set(null);
+    this.statementDetailLoading.set(true);
+    this.store.loadMovementDetail(record.apiId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((detail) => {
+      const remainingLoadingTime = Math.max(0, 3000 - (Date.now() - loadingStartedAt));
+      this.statementDetailRevealTimer = setTimeout(() => {
+        this.statementDetail.set(detail);
+        this.statementDetailLoading.set(false);
+        this.statementDetailRevealTimer = null;
+      }, remainingLoadingTime);
+    });
+  }
+  closeMovementDetail(): void {
+    if (this.statementDetailRevealTimer !== null) {
+      clearTimeout(this.statementDetailRevealTimer);
+      this.statementDetailRevealTimer = null;
+    }
+    this.statementDetail.set(null);
+    this.statementDetailLoading.set(false);
   }
   openMovementResult(accountId: string, date: string): void {
     this.store.setActiveAccountId(accountId);
@@ -2898,11 +3039,15 @@ export class FinanceShellComponent {
     this.statementMode.set("statements");
     this.statementPeriodForm.reset({ from: date, to: date });
     this.statementPanelOpen.set(true);
-    void this.router.navigate(["/account", accountId, "statements"]);
+    void this.router.navigate(["/conta", accountId, this.sectionRoute("statements")], { queryParams: { dataInicial: date, dataFinal: date, consulta: "registros" }, replaceUrl: true });
     this.searchStatement();
   }
   closeStatementPanel(): void {
     this.statementPanelOpen.set(false);
+    if (this.statementDetailRevealTimer !== null) clearTimeout(this.statementDetailRevealTimer);
+    this.statementDetailRevealTimer = null;
+    this.statementDetail.set(null);
+    this.statementDetailLoading.set(false);
   }
   applyStatementPeriodPreset(preset: "current" | "previous3" | "previous6" | "next3" | "next6" | "next12"): void {
     const ranges = {
@@ -2920,6 +3065,7 @@ export class FinanceShellComponent {
       from: this.periodForMonth(start).dataInicial,
       to: this.periodForMonth(end).dataFinal,
     });
+    this.updatePeriodQuery({ dataInicial: this.periodForMonth(start).dataInicial, dataFinal: this.periodForMonth(end).dataFinal, consulta: this.statementMode() === "transactions" ? "lancamentos" : "registros" });
   }
   searchStatement(): void {
     const accountId = this.activeAccountId();
@@ -2939,6 +3085,7 @@ export class FinanceShellComponent {
       dataInicial: period.from,
       dataFinal: period.to,
     };
+    this.updatePeriodQuery({ dataInicial: selectedPeriod.dataInicial, dataFinal: selectedPeriod.dataFinal, consulta: this.statementMode() === "transactions" ? "lancamentos" : "registros" });
     if (this.statementMode() === "transactions")
       this.store.loadTransactions(accountId, selectedPeriod);
     else this.store.loadAccountMovements(accountId, selectedPeriod);
@@ -2992,6 +3139,7 @@ export class FinanceShellComponent {
       this.invoicePeriodRange.set(null);
     }
     const record = this.selectedRecord();
+    if (record?.apiId && this.activeAccountId()) this.updateCardUrl(record.apiId, tab);
     if (tab === "overview" && record?.apiId && record.cardType === "CREDITO") {
       this.loadingTarget.set("detail");
       this.store.loadInvoices(record.apiId, this.periodForMonth(this.invoiceMonth()));
@@ -3001,6 +3149,8 @@ export class FinanceShellComponent {
     if (!month) return;
     this.invoiceMonth.set(month);
     this.invoicePeriodRange.set(null);
+    const period = this.periodForMonth(month);
+    this.updatePeriodQuery({ dataInicial: period.dataInicial, dataFinal: period.dataFinal, consulta: "faturas" });
   }
   invoicePeriodForFilter(): { from: string; to: string } {
     const period = this.invoicePeriodRange() ?? this.periodForMonth(this.invoiceMonth());
@@ -3010,6 +3160,7 @@ export class FinanceShellComponent {
     if (!period.from || !period.to) return;
     this.invoicePeriodRange.set({ dataInicial: period.from, dataFinal: period.to });
     this.invoiceMonth.set(period.from.slice(0, 7));
+    this.updatePeriodQuery({ dataInicial: period.from, dataFinal: period.to, consulta: "faturas" });
   }
   applyInvoicePeriodPreset(preset: "current" | "previous3" | "previous6" | "next3" | "next6" | "next12"): void {
     const ranges = {
@@ -3028,22 +3179,47 @@ export class FinanceShellComponent {
       dataInicial: this.periodForMonth(start).dataInicial,
       dataFinal: this.periodForMonth(end).dataFinal,
     });
+    this.updatePeriodQuery({ dataInicial: this.periodForMonth(start).dataInicial, dataFinal: this.periodForMonth(end).dataFinal, consulta: "faturas" });
   }
   searchInvoices(): void {
     const record = this.selectedRecord();
     if (!record?.apiId || record.cardType !== "CREDITO") return;
     this.loadingTarget.set("detail");
-    this.store.loadInvoices(record.apiId, this.invoicePeriodRange() ?? this.periodForMonth(this.invoiceMonth()));
+    const period = this.invoicePeriodRange() ?? this.periodForMonth(this.invoiceMonth());
+    this.updatePeriodQuery({ dataInicial: period.dataInicial, dataFinal: period.dataFinal, consulta: "faturas" });
+    this.store.loadInvoices(record.apiId, period);
   }
   openInvoiceDetail(invoice: FinanceRecord): void {
     if (!invoice.apiId) return;
     this.loadingTarget.set("detail");
-    this.store.loadInvoiceDetail(invoice.apiId).subscribe((detail) => {
+    const cardId = this.selectedRecord()?.apiId;
+    const accountId = this.activeAccountId();
+    if (cardId && accountId) {
+      void this.router.navigate(["/conta", accountId, "cartoes", cardId, "faturas", invoice.apiId], {
+        queryParams: { dataInicial: this.invoicePeriodForFilter().from, dataFinal: this.invoicePeriodForFilter().to, consulta: "faturas" },
+        replaceUrl: true,
+      });
+    }
+    this.loadInvoiceDetailById(invoice.apiId);
+  }
+  private loadInvoiceDetailById(invoiceId: string): void {
+    this.invoiceDetailRequestedId.set(invoiceId);
+    this.loadingTarget.set("detail");
+    this.store.loadInvoiceDetail(invoiceId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((detail) => {
       if (detail) this.invoiceDetail.set(detail);
     });
   }
   closeInvoiceDetail(): void {
     this.invoiceDetail.set(null);
+    this.invoiceDetailRequestedId.set(null);
+    const cardId = this.selectedRecord()?.apiId;
+    const accountId = this.activeAccountId();
+    if (cardId && accountId) {
+      void this.router.navigate(["/conta", accountId, "cartoes", cardId, "faturas"], {
+        queryParamsHandling: "merge",
+        replaceUrl: true,
+      });
+    }
   }
   setCategoryTab(tab: CategoryTab): void {
     this.store.setCategoryTab(tab);
@@ -3133,15 +3309,25 @@ export class FinanceShellComponent {
   }
   updateAccountUrl(accountId: string | null): void {
     if (accountId && this.isAccountDependent(this.active())) {
-      void this.router.navigate(["/account", accountId, this.active()], {
+      void this.router.navigate(["/conta", accountId, this.sectionRoute(this.active())], {
         replaceUrl: true,
       });
     } else {
       void this.router.navigate(
-        this.active() === "overview" ? ["/"] : [this.active()],
+        this.active() === "overview" ? ["/visao-geral"] : [this.sectionRoute(this.active())],
         { replaceUrl: true },
       );
     }
+  }
+  updateCardUrl(cardId: string, tab: "overview" | "invoices"): void {
+    const accountId = this.activeAccountId();
+    if (!accountId || this.active() !== "cardCredit") return;
+    void this.router.navigate(
+      tab === "invoices"
+        ? ["/conta", accountId, "cartoes", cardId, "faturas"]
+        : ["/conta", accountId, "cartoes", cardId],
+      { replaceUrl: true },
+    );
   }
   closeMovementAside(): void {
     if (!this.movementSaving()) {
@@ -3293,7 +3479,7 @@ export class FinanceShellComponent {
       ...(cardPayment && value.cardId ? { cartaoId: value.cardId } : {}),
     };
     this.movementSaving.set(true);
-    this.store.createMovement(value.accountId, body).subscribe({
+    this.store.createMovement(value.accountId, body).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (created) => {
         this.movementSaving.set(false);
         if (created) {
@@ -3475,7 +3661,7 @@ export class FinanceShellComponent {
       this.store.sections().cards.records.map((record) => record.id),
     );
     this.cardSaving.set(true);
-    this.store.createCard(request).subscribe({
+    this.store.createCard(request).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (created) => {
         this.cardSaving.set(false);
         if (created) {
@@ -3539,7 +3725,7 @@ export class FinanceShellComponent {
       this.store.sections().investments.records.map((record) => record.id),
     );
     this.investmentSaving.set(true);
-    this.store.createInvestment(request).subscribe({
+    this.store.createInvestment(request).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (created) => {
         this.investmentSaving.set(false);
         if (created) {
@@ -3567,7 +3753,7 @@ export class FinanceShellComponent {
     if (value.limit === null) return;
     this.budgetSaving.set(true);
     const request: BudgetRequest = { valorLimite: value.limit };
-    this.store.createBudget(categoryId, request).subscribe({
+    this.store.createBudget(categoryId, request).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (created) => {
         this.budgetSaving.set(false);
         if (created) this.closeBudgetForm();
@@ -3601,6 +3787,7 @@ export class FinanceShellComponent {
         creditoTotal: value.creditTotal,
         saldoCorrente: value.currentBalance,
       })
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (created) => {
           this.accountSaving.set(false);
@@ -3641,6 +3828,7 @@ export class FinanceShellComponent {
         cor: value.color.trim(),
         icone: value.icon.trim(),
       })
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (created) => {
           this.categorySaving.set(false);

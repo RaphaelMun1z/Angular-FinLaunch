@@ -96,6 +96,21 @@ export const FinanceStore = signalStore(
         error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
       });
     },
+    loadMovementDetail(movementId: string): Observable<FinanceRecord | null> {
+      patchState(store, { loading: true, error: null });
+      return api.getMovement(movementId).pipe(
+        map((item) => {
+          if (item.id === undefined || item.valorTotal === undefined || item.dataLancamento === undefined) {
+            patchState(store, { loading: false, error: "A API nao retornou os dados necessarios da movimentacao." });
+            return null;
+          }
+          const record: FinanceRecord = { id: item.id, apiId: item.id, title: item.descricao?.trim() || "Movimentação", category: item.categoriaId ?? "", amount: item.valorTotal, date: item.dataLancamento, type: item.valorTotal >= 0 ? "income" : "expense", method: item.metodoPagamento, recurring: item.ehRecorrente, installments: item.qntParcelas, notes: item.descricao, accountId: item.contaBancariaId };
+          patchState(store, { loading: false, error: null });
+          return record;
+        }),
+        catchError((error: unknown) => { patchState(store, { loading: false, error: toUserError(error) }); return of(null); }),
+      );
+    },
     loadTransactions(accountId: string, period: PeriodRequest): void {
       patchState(store, { loading: true, error: null });
       api.listEntries(accountId, period).subscribe({

@@ -123,6 +123,12 @@
 .invoice-period-presets { grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:7px; margin-top:3px; }
 .invoice-period-presets button { padding:7px 10px; border:1px solid #454650; border-radius:7px; background:#22242b; color:#c9cbd2; font:700 10px Inter,sans-serif; cursor:pointer; }
 .invoice-period-presets button:hover { border-color:#ed3114; color:#ff8b73; }
+.invoice-period-presets > * { animation:resource-record-pop .42s cubic-bezier(.22,.8,.25,1) both; will-change:transform,opacity; }
+.invoice-period-presets > :nth-child(2) { animation-delay:.04s; }
+.invoice-period-presets > :nth-child(3) { animation-delay:.08s; }
+.invoice-period-presets > :nth-child(4) { animation-delay:.12s; }
+.invoice-period-presets > :nth-child(5) { animation-delay:.16s; }
+.invoice-period-presets > :nth-child(6) { animation-delay:.20s; }
 .invoices-active { display:grid; grid-template-columns:max-content max-content minmax(0,1fr); justify-content:stretch; align-content:start; align-items:end; column-gap:12px; width:100%; min-height:100%; box-sizing:border-box; }
 .invoices-active > .domain-header,
 .invoices-active > .domain-tabs,

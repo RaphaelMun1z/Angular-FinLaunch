@@ -586,7 +586,7 @@ export class LoginComponent {
 		this.auth.login(this.form.getRawValue()).subscribe({
 			next: () => {
 				this.notifications.success("Login realizado com sucesso.");
-				void this.router.navigate(["/overview"]);
+				void this.router.navigate(["/visao-geral"]);
 			},
 			error: (error: unknown) => {
 				this.loading.set(false);

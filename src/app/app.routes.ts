@@ -7,8 +7,13 @@ import { authGuard, guestGuard } from "./core/auth/auth.guard";
 export const routes: Routes = [
   { path: "login", component: LoginComponent, canActivate: [guestGuard] },
   { path: "unauthorized", component: UnauthorizedComponent },
-  { path: "", redirectTo: "overview", pathMatch: "full" },
-  { path: "account/:accountId/:section", component: FinanceShellComponent, canActivate: [authGuard] },
+  { path: "", redirectTo: "visao-geral", pathMatch: "full" },
+  { path: "conta/:accountId/cartoes/:cardId/faturas/:invoiceId", component: FinanceShellComponent, canActivate: [authGuard] },
+  { path: "conta/:accountId/cartoes/:cardId/faturas", component: FinanceShellComponent, canActivate: [authGuard] },
+  { path: "conta/:accountId/cartoes/:cardId", component: FinanceShellComponent, canActivate: [authGuard] },
+  { path: "conta/:accountId/:section/:recordId", component: FinanceShellComponent, canActivate: [authGuard] },
+  { path: "conta/:accountId/:section", component: FinanceShellComponent, canActivate: [authGuard] },
+  { path: ":section/:recordId", component: FinanceShellComponent, canActivate: [authGuard] },
   { path: ":section", component: FinanceShellComponent, canActivate: [authGuard] },
   { path: "**", redirectTo: "" },
 ];

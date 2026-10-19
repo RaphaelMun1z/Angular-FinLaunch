@@ -33,6 +33,27 @@ export const navigation: NavItem[] = [
   { key: "goals", label: "Meta financeira", icon: "flag" },
 ];
 
+export const sectionRouteSegments: Record<SectionKey, string> = {
+  overview: "visao-geral",
+  transactions: "lancamentos",
+  accounts: "contas-bancarias",
+  statements: "extratos",
+  cards: "cartoes",
+  cardCredit: "cartoes-credito",
+  cardDebit: "cartoes-debito",
+  cardVoucher: "cartoes-voucher",
+  categories: "categorias",
+  budgets: "orcamentos",
+  invoices: "faturas",
+  investments: "investimentos",
+  goals: "metas-financeiras",
+};
+
+export const sectionFromRouteSegment = (segment: string | null): SectionKey | null => {
+  if (!segment) return null;
+  return (Object.entries(sectionRouteSegments).find(([, value]) => value === segment)?.[0] as SectionKey | undefined) ?? null;
+};
+
 export const initialState: FinanceState = {
   sections,
   activeAccountId: null,
