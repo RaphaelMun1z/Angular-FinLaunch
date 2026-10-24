@@ -25,12 +25,21 @@ import { OverviewSelection } from "../../core/models/finance.models";
 })
 export class CalendarViewComponent implements AfterViewInit, OnDestroy {
   readonly selection = input.required<OverviewSelection>();
+  readonly availableMonths = input<string[]>([]);
   readonly selected = output<OverviewSelection>();
   readonly year = new Date().getFullYear();
-  readonly months = computed(() => Array.from({ length: 12 }, (_, month) => {
-    const value = `${this.year}-${String(month + 1).padStart(2, "0")}`;
-    return { value, label: new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(new Date(this.year, month, 1)), current: month === new Date().getMonth() };
-  }));
+  readonly months = computed(() => {
+    const fallback = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+    const values = this.availableMonths().length ? this.availableMonths() : [fallback];
+    return [...new Set(values)]
+      .filter((value) => /^\d{4}-(0[1-9]|1[0-2])$/.test(value))
+      .sort()
+      .map((value) => {
+        const date = new Date(`${value}-01T12:00:00`);
+        return { value, label: new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(date), current: value === fallback };
+      });
+  });
+  readonly periodYears = computed(() => [...new Set(this.months().map((month) => month.value.slice(0, 4)))].join(" · "));
   private dragStartY = 0;
   private dragStartScrollTop = 0;
   private dragging = false;

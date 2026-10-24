@@ -2553,6 +2553,165 @@ app-monthly-line-chart {
 .dashboard-snapshot-row > div {
 	min-width: 0;
 }
+.dashboard-snapshot-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 18px;
+}
+.dashboard-snapshot-row > div:first-child {
+	display: grid;
+	gap: 5px;
+	min-width: 0;
+}
+.dashboard-snapshot-row > div:first-child small {
+	line-height: 1.35;
+	white-space: normal;
+}
+.dashboard-snapshot-metrics {
+	display: grid !important;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 6px;
+	margin-top: 4px;
+}
+.dashboard-snapshot-metrics > div {
+	display: grid;
+	gap: 3px;
+	padding: 6px 8px;
+	border: 1px solid #383a44;
+	border-radius: 6px;
+	background: #24262d;
+}
+.dashboard-snapshot-metrics > .dashboard-credit-total-metric {
+	grid-column: 1 / -1;
+}
+.dashboard-flow-total-metric,
+.dashboard-snapshot-metrics > .dashboard-credit-total-metric {
+	min-height: 92px;
+	box-sizing: border-box;
+}
+.dashboard-snapshot-metrics span {
+	color: #8f929e;
+	font-size: 9px;
+	line-height: 1.2;
+}
+.dashboard-snapshot-metrics strong {
+	color: #f1f1f3;
+	font-size: 10px;
+	white-space: nowrap;
+}
+.dashboard-snapshot-value {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: flex-end;
+	flex: 0 0 auto;
+	gap: 3px;
+}
+.dashboard-snapshot-value small {
+	margin: 0;
+	white-space: nowrap;
+}
+.dashboard-snapshot-metric-bar {
+	display: block;
+	height: 4px;
+	margin-top: 5px;
+	overflow: hidden;
+	border-radius: 999px;
+	background: #363842;
+}
+.dashboard-snapshot-metric-bar b {
+	display: block;
+	height: 100%;
+	border-radius: inherit;
+	background: #60a5fa;
+	transition: width .3s ease;
+}
+.dashboard-snapshot-metric-bar.income b { background: #65d0a8; }
+.dashboard-snapshot-metric-bar.expense b { background: #ff8b73; }
+.dashboard-snapshot-metric-bar.used b { background: #ff8b73; }
+.dashboard-snapshot-metric-bar.available b { background: #60a5fa; }
+.dashboard-flow-total-metric {
+	display: grid !important;
+	grid-column: 1 / -1;
+	gap: 6px;
+	padding: 8px;
+	border: 1px solid #383a44;
+	border-radius: 6px;
+	background: #24262d;
+}
+.dashboard-flow-bar {
+	display: flex;
+	height: 7px;
+	overflow: hidden;
+	border-radius: 999px;
+	background: #363842;
+}
+.dashboard-flow-bar b { display: block; height: 100%; transition: width .3s ease; }
+.dashboard-flow-bar b.income { background: #60a5fa; }
+.dashboard-flow-bar b.expense { background: #ff8b73; }
+.dashboard-flow-labels {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	font-size: 10px;
+}
+.dashboard-flow-labels strong { white-space: nowrap; }
+.dashboard-flow-labels strong.income { color: #60a5fa; }
+.dashboard-flow-labels strong.expense { color: #ff8b73; }
+.dashboard-credit-bar {
+	position: relative;
+	display: block;
+	height: 7px;
+	margin-top: 6px;
+	overflow: hidden;
+	border-radius: 999px;
+	background: #363842;
+}
+.dashboard-credit-bar b {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	display: block;
+	transition: left .3s ease, width .3s ease;
+}
+.dashboard-credit-bar b.base { inset: 0; background: #454853; }
+.dashboard-credit-bar b.used { left: 0; background: #ff8b73; }
+.dashboard-credit-bar b.available { background: #60a5fa; }
+.dashboard-credit-labels {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-top: 7px;
+	font-size: 10px;
+}
+.dashboard-credit-labels strong { white-space: nowrap; }
+.dashboard-credit-labels strong.used { color: #ff8b73; }
+.dashboard-credit-labels strong.available { color: #60a5fa; }
+.dashboard-credit-legend {
+	display: flex;
+	gap: 9px;
+	margin-top: 6px;
+	color: #999ca8;
+	font-size: 9px;
+}
+.dashboard-credit-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.dashboard-credit-legend i { width: 6px; height: 6px; border-radius: 50%; }
+.dashboard-credit-legend i.used { background: #ff8b73; }
+.dashboard-credit-legend i.available { background: #60a5fa; }
+@media (max-width: 700px) {
+	.dashboard-snapshot-row {
+		grid-template-columns: 1fr;
+		gap: 9px;
+	}
+	.dashboard-snapshot-metrics {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+	.dashboard-snapshot-value {
+		align-items: flex-start;
+	}
+}
 .overview-tabs {
 	flex-wrap: nowrap;
 	overflow-x: auto;

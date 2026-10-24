@@ -4,7 +4,7 @@ import { Observable } from "rxjs";
 import {
   BankAccountRequest, BankAccountResponse, BankAccountUpdateRequest, BudgetRequest, BudgetResponse, CardRequest, CardResponse,
   CategoryRequest, CategoryResponse, EntryResponse, GoalRequest, GoalResponse, InvestmentRequest,
-  DashboardResponse, InvestmentResponse, InvoiceResponse, LoginRequest, LoginResponse, MovementRequest, MovementResponse, MovementUpdateRequest, RecurrenceRequest, RegisterRequest,
+  DashboardResponse, HistoricalPeriodsResponse, InvestmentResponse, InvoiceResponse, LoginRequest, LoginResponse, MovementRequest, MovementResponse, MovementUpdateRequest, RecurrenceRequest, RegisterRequest,
   PeriodRequest, UserDetailsResponse,
 } from "./api.models";
 
@@ -25,6 +25,7 @@ export class FinanceApiService {
     const params = mesReferencia ? new HttpParams().set("mesReferencia", mesReferencia) : undefined;
     return this.http.get<DashboardResponse>(`${this.baseUrl}/dashboard`, params ? { params } : undefined);
   }
+  historicalPeriods(): Observable<HistoricalPeriodsResponse> { return this.http.get<HistoricalPeriodsResponse>(`${this.baseUrl}/dashboard/periodos-com-historico`); }
 
   listGoals(): Observable<GoalResponse[]> { return this.http.get<GoalResponse[]>(`${this.baseUrl}/metas-financeiras`); }
   createGoal(body: GoalRequest): Observable<GoalResponse> { return this.http.post<GoalResponse>(`${this.baseUrl}/metas-financeiras`, body); }

@@ -16,6 +16,7 @@ import { CalendarViewComponent } from "../../shared/components/calendar-view.com
 import { MonthlyLineChartComponent } from "../../shared/components/monthly-line-chart.component";
 import { FinanceRecordDetailComponent } from "./finance-record-detail.component";
 import { FinanceStore } from "../../core/store/finance.store";
+import { FinanceApiService } from "../../core/api/finance-api.service";
 import { AuthService } from "../../core/auth/auth.service";
 import {
   BankAccountResponse,
@@ -23,6 +24,7 @@ import {
   CardRequest,
   CategoryType,
   DashboardInvoice,
+  DashboardAccountSnapshot,
   InvestmentRequest,
   MovementMethod,
   MovementRequest,
@@ -212,6 +214,7 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
               }
               <app-calendar-view
                 [selection]="store.overviewSelection()"
+                [availableMonths]="historicalPeriods()"
                 (selected)="selectOverview($event)"
               />
             } @else {
@@ -2081,9 +2084,12 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                       <div class="dash-transaction dashboard-snapshot-row">
                         <div>
                           <button type="button" class="dashboard-resource-link dashboard-resource-title" (click)="openDashboardAccountById(snapshot.contaBancariaId)">{{ snapshot.nomeDoBanco || "Conta bancária" }}</button>
-                          <small>Entradas: {{ money(snapshot.totalEntradas) }} · Saídas: {{ money(snapshot.totalSaidas) }} · {{ shortDate(snapshot.dataFechamento) }}</small>
+                          <div class="dashboard-snapshot-metrics">
+                            <div class="dashboard-flow-total-metric"><span>Fluxo do período</span><div class="dashboard-flow-labels"><strong class="income">{{ money(snapshot.totalEntradas) }} ({{ dashboardFlowPercentage(snapshot, snapshot.totalEntradas) }}%)</strong><strong class="expense">{{ money(snapshot.totalSaidas) }} ({{ dashboardFlowPercentage(snapshot, snapshot.totalSaidas) }}%)</strong></div><i class="dashboard-flow-bar"><b class="income" [style.width.%]="dashboardFlowWidth(snapshot, snapshot.totalEntradas)"></b><b class="expense" [style.width.%]="dashboardFlowWidth(snapshot, snapshot.totalSaidas)"></b></i></div>
+                            <div class="dashboard-credit-total-metric"><span>Crédito total</span><strong>{{ money(snapshot.creditoTotal) }}</strong><div class="dashboard-credit-labels"><strong class="used">{{ money(snapshot.creditoUsado) }} ({{ dashboardCreditPercentage(snapshot.creditoUsado, snapshot.creditoTotal) }}%)</strong><strong class="available">{{ money(snapshot.creditoRestante) }} ({{ dashboardCreditPercentage(snapshot.creditoRestante, snapshot.creditoTotal) }}%)</strong></div><i class="dashboard-credit-bar"><b class="base"></b><b class="used" [style.width.%]="dashboardCreditWidth(snapshot.creditoUsado, snapshot.creditoTotal)"></b><b class="available" [style.left.%]="dashboardCreditWidth(snapshot.creditoUsado, snapshot.creditoTotal)" [style.width.%]="dashboardCreditWidth(snapshot.creditoRestante, snapshot.creditoTotal)"></b></i></div>
+                          </div>
                         </div>
-                        <b>{{ money(snapshot.saldoFinal) }}</b>
+                        <div class="dashboard-snapshot-value"><small>Saldo final</small><b>{{ money(snapshot.saldoFinal) }}</b></div>
                       </div>
                     }
                   }
@@ -2144,9 +2150,8 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                       <div class="dash-transaction dashboard-snapshot-row">
                         <div>
                           <button type="button" class="dashboard-resource-link dashboard-resource-title" (click)="openDashboardResource('investments', snapshot.investimentoId)">{{ snapshot.categoria || "Investimento" }}</button>
-                          <small>{{ shortDate(snapshot.dataFechamento) }}</small>
                         </div>
-                        <b>{{ money(snapshot.valorFinal) }}</b>
+                        <div class="dashboard-snapshot-value"><small>Valor final</small><b>{{ money(snapshot.valorFinal) }}</b></div>
                       </div>
                     }
                   }
@@ -2603,6 +2608,7 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
 export class FinanceShellComponent {
   readonly store = inject(FinanceStore);
   readonly auth = inject(AuthService);
+  readonly financeApi = inject(FinanceApiService);
   readonly router = inject(Router);
   readonly route = inject(ActivatedRoute);
   readonly destroyRef = inject(DestroyRef);
@@ -2697,8 +2703,12 @@ export class FinanceShellComponent {
   readonly activeAccountTitle = computed(
     () => this.activeAccount()?.title ?? "",
   );
+  readonly historicalPeriods = signal<string[]>([]);
+  private historicalPeriodsLoaded = false;
+  private historicalPeriodsLoading = false;
   private readonly activeAccountUrlEffect = effect(() => {
     if (this.active() === "overview") {
+      this.loadHistoricalPeriods();
       this.loadingTarget.set("detail");
       this.store.loadDashboard(false, this.store.overviewSelection().value);
       this.store.loadSection("cardCredit");
@@ -3052,6 +3062,19 @@ export class FinanceShellComponent {
   readonly dashboardInvestments = computed(() => this.dashboardData()?.investimentos ?? []);
   readonly dashboardInvestmentSnapshots = computed(() => this.dashboardData()?.investimentosNoMes ?? []);
   readonly collapsedDashboardInvoices = signal<Set<string>>(new Set());
+  dashboardFlowWidth(snapshot: DashboardAccountSnapshot, value: number | undefined): number {
+    const total = Math.abs(snapshot.totalEntradas ?? 0) + Math.abs(snapshot.totalSaidas ?? 0);
+    return total > 0 ? (Math.abs(value ?? 0) / total) * 100 : 50;
+  }
+  dashboardFlowPercentage(snapshot: DashboardAccountSnapshot, value: number | undefined): number {
+    return Math.round(this.dashboardFlowWidth(snapshot, value));
+  }
+  dashboardCreditWidth(value: number | undefined, total: number | undefined): number {
+    return total && total > 0 ? Math.min(((value ?? 0) / total) * 100, 100) : 50;
+  }
+  dashboardCreditPercentage(value: number | undefined, total: number | undefined): number {
+    return Math.round(this.dashboardCreditWidth(value, total));
+  }
   readonly dashboardGoals = computed(() => this.dashboardData()?.metas ?? []);
   readonly income = computed(() =>
     this.periodRecords()
@@ -3253,6 +3276,25 @@ export class FinanceShellComponent {
       this.loadingTarget.set("detail");
       this.store.loadDashboard(true, selection.value);
     }
+  }
+  private loadHistoricalPeriods(): void {
+    if (this.historicalPeriodsLoaded || this.historicalPeriodsLoading) return;
+    this.historicalPeriodsLoading = true;
+    this.financeApi.historicalPeriods().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (response) => {
+        const periods = [...new Set((response.periodos ?? []).filter((period) => /^\d{4}-(0[1-9]|1[0-2])$/.test(period)))].sort();
+        this.historicalPeriods.set(periods);
+        this.historicalPeriodsLoaded = true;
+        this.historicalPeriodsLoading = false;
+        const selected = this.store.overviewSelection().value;
+        if (periods.length && !periods.includes(selected)) {
+          this.selectOverview({ type: "month", value: periods[periods.length - 1] });
+        }
+      },
+      error: () => {
+        this.historicalPeriodsLoading = false;
+      },
+    });
   }
   selectRecord(id: string): void {
     if (this.categorySaving()) return;
