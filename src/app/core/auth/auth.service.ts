@@ -2,7 +2,7 @@ import { Injectable, computed, signal, inject, Injector } from "@angular/core";
 import { Router } from "@angular/router";
 import { Observable, tap } from "rxjs";
 import { FinanceApiService } from "../api/finance-api.service";
-import { LoginRequest, LoginResponse, UserDetailsResponse } from "../api/api.models";
+import { LoginRequest, LoginResponse, RegisterRequest, UserDetailsResponse } from "../api/api.models";
 import { toUserError } from "../http/http-error.util";
 import { FinanceStore } from "../store/finance.store";
 
@@ -25,11 +25,13 @@ export class AuthService {
       this.loadUser();
     }));
   }
+  register(values: RegisterRequest): Observable<UserDetailsResponse> { return this.api.register(values); }
 
   currentToken(): string | null { return this.hasValidToken() ? this.token() : null; }
   hasToken(): boolean { return this.token() !== null; }
   hasValidToken(): boolean { return this.isTokenValid(this.token()); }
   me(): Observable<UserDetailsResponse> { return this.api.me(); }
+  deleteAccount(): Observable<void> { return this.api.deleteCurrentUser(); }
   loadUser(): void { this.api.me().subscribe({ next: (user) => this.user.set(user), error: () => this.user.set(null) }); }
 
   userMessage(error: unknown): string { return toUserError(error); }

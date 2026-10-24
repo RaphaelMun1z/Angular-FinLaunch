@@ -1,3 +1,5 @@
+import { DashboardResponse } from "../api/api.models";
+
 export type RecordType = "income" | "expense";
 export type SectionKey =
   | "overview"
@@ -62,12 +64,15 @@ export interface FinanceRecord {
   type: RecordType;
   method?: string;
   recurring?: boolean;
+  nextRecurrence?: string;
   installments?: number | null;
   icon?: string;
   color?: string;
   account?: string;
   notes?: string;
   status?: string;
+  paidDate?: string;
+  paidAmount?: number;
   movements?: Movement[];
 }
 
@@ -96,6 +101,7 @@ export interface Filters {
 
 export interface FinanceState {
   sections: Record<SectionKey, SectionData>;
+  dashboard: DashboardResponse | null;
   activeAccountId: string | null;
   active: SectionKey;
   selectedId: string | null;

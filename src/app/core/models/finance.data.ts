@@ -56,6 +56,7 @@ export const sectionFromRouteSegment = (segment: string | null): SectionKey | nu
 
 export const initialState: FinanceState = {
   sections,
+  dashboard: null,
   activeAccountId: null,
   active: "overview",
   selectedId: null,

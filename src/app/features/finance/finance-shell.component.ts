@@ -18,9 +18,11 @@ import { FinanceRecordDetailComponent } from "./finance-record-detail.component"
 import { FinanceStore } from "../../core/store/finance.store";
 import { AuthService } from "../../core/auth/auth.service";
 import {
+  BankAccountResponse,
   BudgetRequest,
   CardRequest,
   CategoryType,
+  DashboardInvoice,
   InvestmentRequest,
   MovementMethod,
   MovementRequest,
@@ -197,6 +199,17 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
             "
           >
             @if (active() === "overview") {
+              @if (resourceLoadingVisible() && loadingTarget() === "list") {
+                <div
+                  class="resource-loading list-resource-loading"
+                  [class.resource-loading-active]="store.loading()"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span class="material-symbols-outlined">rocket_launch</span>
+                  <strong>Carregando dashboard...</strong>
+                </div>
+              }
               <app-calendar-view
                 [selection]="store.overviewSelection()"
                 (selected)="selectOverview($event)"
@@ -407,8 +420,8 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                               : shortDate(record.date)
                           }}</span
                         >
-                      }</span
-                    ><span class="record-end"
+                      }</span>
+                    <span class="record-end"
                       ><strong [class.positive]="record.type === 'income'">
                         @if (active() !== "investments") {
                           {{ movementIcon(record) }}
@@ -1206,7 +1219,12 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                     <span class="material-symbols-outlined">close</span>
                   </button>
                 </div>
-                @if (statementDetailLoading()) {
+                @if (store.loading() && !statementDetailLoading() && !statementDetail()) {
+                  <div class="resource-loading statement-detail-resource-loading" [class.resource-loading-active]="store.loading()">
+                    <span class="material-symbols-outlined">rocket_launch</span>
+                    <strong>Carregando...</strong>
+                  </div>
+                } @else if (statementDetailLoading()) {
                   <div class="resource-loading statement-detail-resource-loading" [class.resource-loading-active]="store.loading()">
                     <span class="material-symbols-outlined">rocket_launch</span>
                     <strong>Carregando...</strong>
@@ -1225,6 +1243,7 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                       <div><span>CATEGORIA</span><strong>{{ detail.category || 'Não informada' }}</strong></div>
                       <div><span>RECORRÊNCIA</span><strong>{{ detail.recurring ? 'Recorrente' : 'Avulsa' }}</strong></div>
                       @if (detail.installments) { <div><span>PARCELAS</span><strong>{{ detail.installments }}</strong></div> }
+                      @if (detail.nextRecurrence) { <div><span>PRÓXIMA RECORRÊNCIA</span><strong>{{ fullDate(detail.nextRecurrence) }}</strong></div> }
                     </div>
                     @if (detail.notes) { <div class="statement-detail-description"><span>DESCRIÇÃO</span><p>{{ detail.notes }}</p></div> }
                   </div>
@@ -1359,7 +1378,25 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                       <div><span>VALOR TOTAL</span><strong>{{ money(invoice.amount) }}</strong></div>
                       <div><span>STATUS</span><strong>{{ invoice.status ?? "Status indisponivel" }}</strong></div>
                       <div><span>REFERENCIA</span><strong>{{ monthReference(invoice.date) }}</strong></div>
+                      @if (invoice.paidDate) {
+                        <div><span>DATA DE PAGAMENTO</span><strong>{{ shortDate(invoice.paidDate) }}</strong></div>
+                      }
+                      @if (invoice.paidAmount !== undefined) {
+                        <div><span>VALOR PAGO</span><strong>{{ money(invoice.paidAmount) }}</strong></div>
+                      }
                     </div>
+                    @if (invoice.status !== "PAGA" && invoice.apiId) {
+                      <div class="invoice-payment-action">
+                        <div>
+                          <strong>Pagamento da fatura</strong>
+                          <small>O valor de {{ money(invoice.amount) }} será debitado da conta vinculada.</small>
+                        </div>
+                        <button type="button" class="invoice-payment-button" (click)="payInvoice(invoice.apiId)" [disabled]="store.loading()" [attr.aria-busy]="store.loading()">
+                          <span class="material-symbols-outlined">payments</span>
+                          {{ store.loading() ? "PROCESSANDO..." : "PAGAR FATURA" }}
+                        </button>
+                      </div>
+                    }
                     <div class="invoice-detail-heading"><span class="material-symbols-outlined">list_alt</span><strong>Lançamentos da fatura</strong></div>
                     <div class="invoice-detail-movements">
                       @for (movement of invoice.movements ?? []; track movement.title + movement.date) {
@@ -1438,6 +1475,15 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                         }}</span
                       >
                     </div>
+                    <button
+                      type="button"
+                      class="category-detail-close"
+                      aria-label="Fechar detalhes da categoria"
+                      title="Fechar"
+                      (click)="clearSelection()"
+                    >
+                      <span class="material-symbols-outlined">close</span>
+                    </button>
                   </div>
                   <div class="category-tabs domain-tabs visible" role="tablist">
                     <button
@@ -1837,7 +1883,18 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                 }
               }
             } @else if (active() === "overview") {
-              <div class="dashboard">
+              <div class="dashboard" [class.dashboard-resource-detail-loading]="resourceLoadingVisible() && loadingTarget() === 'detail'" [attr.data-overview-tab]="overviewTab()">
+                @if (resourceLoadingVisible() && loadingTarget() === "detail") {
+                  <div
+                    class="resource-loading dashboard-detail-resource-loading"
+                    [class.resource-loading-active]="store.loading()"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <span class="material-symbols-outlined">rocket_launch</span>
+                    <strong>Carregando dashboard...</strong>
+                  </div>
+                }
                 <div class="dashboard-selection">
                   <span>{{
                     store.overviewSelection().type === "day"
@@ -1851,32 +1908,122 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                     <span class="dash-kicker">RESUMO FINANCEIRO</span>
                     <h2>Dashboard<span class="accent">.</span></h2>
                   </div>
-                  <span class="dashboard-month">{{ overviewLabel() }}</span>
+                  <span class="dashboard-month">{{ dashboardMonthLabel() }}</span>
                 </div>
+                <div class="domain-tabs overview-tabs" role="tablist" aria-label="Seções do dashboard">
+                  <button type="button" [class.active]="overviewTab() === 'summary'" [attr.aria-selected]="overviewTab() === 'summary'" role="tab" (click)="setOverviewTab('summary')">Resumo</button>
+                  <button type="button" [class.active]="overviewTab() === 'invoices'" [attr.aria-selected]="overviewTab() === 'invoices'" role="tab" (click)="setOverviewTab('invoices')">Faturas</button>
+                  <button type="button" [class.active]="overviewTab() === 'budgets'" [attr.aria-selected]="overviewTab() === 'budgets'" role="tab" (click)="setOverviewTab('budgets')">Orçamentos</button>
+                  <button type="button" [class.active]="overviewTab() === 'movements'" [attr.aria-selected]="overviewTab() === 'movements'" role="tab" (click)="setOverviewTab('movements')">Movimentações</button>
+                  <button type="button" [class.active]="overviewTab() === 'accounts'" [attr.aria-selected]="overviewTab() === 'accounts'" role="tab" (click)="setOverviewTab('accounts')">Contas</button>
+                  <button type="button" [class.active]="overviewTab() === 'entries'" [attr.aria-selected]="overviewTab() === 'entries'" role="tab" (click)="setOverviewTab('entries')">Lançamentos</button>
+                  <button type="button" [class.active]="overviewTab() === 'investments'" [attr.aria-selected]="overviewTab() === 'investments'" role="tab" (click)="setOverviewTab('investments')">Investimentos</button>
+                  <button type="button" [class.active]="overviewTab() === 'goals'" [attr.aria-selected]="overviewTab() === 'goals'" role="tab" (click)="setOverviewTab('goals')">Metas</button>
+                </div>
+                <div class="overview-summary-content">
+                @if (overviewTab() === "summary") {
                 <div class="dashboard-highlight">
                   <span>SALDO DO PERÍODO</span
-                  ><strong>{{ money(balance()) }}</strong
-                  ><span class="dashboard-balance-note">ENTRADAS − SAÍDAS</span>
+                  ><strong>{{ money(dashboardData()?.saldoTotal) }}</strong
+                  ><span class="dashboard-balance-note">SALDO CONSOLIDADO</span>
                 </div>
                 <div class="dashboard-metrics">
                   <div class="dash-metric">
-                    <span>ENTRADAS</span
-                    ><strong class="positive">{{ money(income()) }}</strong
-                    ><small>↑ Receitas</small>
+                    <span>CRÉDITO TOTAL</span
+                    ><strong class="positive">{{ money(dashboardData()?.creditoTotal) }}</strong
+                    ><small>Limite disponível</small>
                   </div>
                   <div class="dash-metric">
-                    <span>SAÍDAS</span
-                    ><strong class="negative">{{ money(expense()) }}</strong
-                    ><small>↓ Despesas</small>
+                    <span>CRÉDITO USADO</span
+                    ><strong class="negative">{{ money(dashboardData()?.creditoUsado) }}</strong
+                    ><small>Disponível: {{ money(dashboardData()?.creditoRestante) }}</small>
                   </div>
                 </div>
-                <div class="dash-section">
-                  <div class="dash-title">DESPESAS POR CATEGORIA</div>
-                  @for (item of categoryTotals(); track item.name) {
+                <app-monthly-line-chart
+                  [records]="dashboardRecords()"
+                  [month]="store.overviewSelection().value"
+                />
+                @if (dashboardUpcomingInvoices().length) {
+                  <div class="dashboard-summary-invoices">
+                    <div class="dash-title">FATURAS DO PERÍODO</div>
+                    @for (invoice of dashboardUpcomingInvoices(); track $index) {
+                      <div class="dash-transaction">
+                        <small class="dashboard-invoice-status">{{ invoice.status || "Status indisponível" }}</small>
+                        <small class="dashboard-invoice-date">{{ dashboardInvoiceDeadlineLabel(invoice) }}</small>
+                        <span class="dash-tx-icon"><span class="material-symbols-outlined">receipt_long</span></span>
+                        <div>
+                          <strong>{{ dashboardInvoiceLabel(invoice.referencia) }}</strong>
+                          <small>{{ invoice.nomeCartao || "Cartão" }}</small>
+                        </div>
+                        <b>{{ money(invoice.valorTotal) }}</b>
+                      </div>
+                    }
+                  </div>
+                }
+                }
+                </div>
+                <div class="dash-section overview-invoices">
+                  <div class="dash-title">FATURAS DO PERÍODO</div>
+                  @for (invoice of dashboardUpcomingInvoices(); track $index) {
+                    <div class="dashboard-invoice-group">
+                      <div class="dash-transaction">
+                        <small class="dashboard-invoice-status">{{ invoice.status || "Status indisponível" }}</small>
+                        <small class="dashboard-invoice-date">{{ dashboardInvoiceDeadlineLabel(invoice) }}</small>
+                        <span class="dash-tx-icon"><span class="material-symbols-outlined">receipt_long</span></span>
+                        <div>
+                          <strong>{{ dashboardInvoiceLabel(invoice.referencia) }}</strong>
+                          <small class="dashboard-resource-links">
+                            @if (invoice.cartaoId) {
+                              <button type="button" class="dashboard-resource-link" (click)="openDashboardCard(invoice)"><span class="material-symbols-outlined">credit_card</span>{{ invoice.nomeCartao || "Cartão" }}</button>
+                            } @else {
+                              <span>{{ invoice.nomeCartao || "Cartão não informado" }}</span>
+                            }
+                            <span aria-hidden="true">·</span>
+                            @if (invoice.nomeBanco || dashboardInvoiceAccountId(invoice)) {
+                              <button type="button" class="dashboard-resource-link" (click)="openDashboardAccount(invoice)"><span class="material-symbols-outlined">account_balance</span>{{ invoice.nomeBanco || "Conta bancária" }}</button>
+                            } @else {
+                              <span>{{ invoice.nomeBanco || "Banco não informado" }}</span>
+                            }
+                          </small>
+                        </div>
+                        <b>{{ money(invoice.valorTotal) }}</b>
+                        @if (dashboardInvoiceEntries(invoice.id).length) {
+                          <button type="button" class="dashboard-invoice-toggle" [attr.aria-expanded]="isDashboardInvoiceExpanded(invoice.id)" [attr.aria-label]="isDashboardInvoiceExpanded(invoice.id) ? 'Recolher lançamentos da fatura' : 'Expandir lançamentos da fatura'" (click)="toggleDashboardInvoice(invoice.id)">
+                            <span class="material-symbols-outlined">{{ isDashboardInvoiceExpanded(invoice.id) ? "expand_less" : "expand_more" }}</span>
+                          </button>
+                        }
+                      </div>
+                      @if (isDashboardInvoiceExpanded(invoice.id)) {
+                        <div class="dashboard-invoice-entries">
+                          @for (entry of dashboardInvoiceEntries(invoice.id); track entry.id ?? $index) {
+                            <div class="dashboard-invoice-entry">
+                              <small class="dashboard-invoice-entry-date">{{ shortDate(entry.dataLancamento) }}</small>
+                              <span class="dashboard-entry-category-tag">{{ entry.categoriaNome || "Categoria não informada" }}</span>
+                              <div>
+                                <strong>{{ entry.descricao || "Lançamento da fatura" }}</strong>
+                              </div>
+                              <div class="dashboard-invoice-entry-value">
+                                @if (entry.numeroParcela && entry.totalParcelas && entry.totalParcelas > 1) {
+                                  <small>Parcela {{ entry.numeroParcela }}/{{ entry.totalParcelas }}</small>
+                                }
+                                <b [class.positive]="(entry.valor ?? 0) >= 0">{{ money(entry.valor) }}</b>
+                              </div>
+                            </div>
+                          }
+                        </div>
+                      }
+                    </div>
+                  } @empty {
+                    <div class="dashboard-empty">Nenhuma fatura disponível no período.</div>
+                  }
+                </div>
+                <div class="dash-section overview-budgets">
+                  <div class="dash-title">ORÇAMENTOS EM USO</div>
+                  @for (item of dashboardBudgetTotals(); track item.name) {
                     <div class="category-bar">
                       <div class="bar-label">
                         <span>{{ item.name }}</span
-                        ><strong>{{ money(item.amount) }}</strong>
+                        ><strong>{{ money(item.amount) }} / {{ money(item.limit) }}</strong>
                       </div>
                       <div class="bar-track">
                         <span [style.width.%]="item.width"></span>
@@ -1884,13 +2031,13 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                     </div>
                   } @empty {
                     <div class="dashboard-empty">
-                      Nenhuma despesa no período selecionado.
+                      Nenhum orçamento disponível no dashboard.
                     </div>
                   }
                 </div>
-                <div class="dash-section">
+                <div class="dash-section overview-movements">
                   <div class="dash-title">ÚLTIMAS MOVIMENTAÇÕES</div>
-                  @for (item of recentRecords(); track item.id) {
+                  @for (item of dashboardRecords(); track item.id) {
                     <div class="dash-transaction">
                       <span
                         class="dash-tx-icon"
@@ -1908,8 +2055,115 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                     </div>
                   } @empty {
                     <div class="dashboard-empty">
-                      Nenhuma movimentação no período selecionado.
+                      Nenhuma movimentação recente disponível.
                     </div>
+                  }
+                </div>
+                <div class="dash-section overview-accounts">
+                  <div class="dash-title">CONTAS BANCÁRIAS</div>
+                  @for (account of dashboardAccounts(); track account.id) {
+                    <div class="dash-transaction">
+                      <span class="dash-tx-icon"><span class="material-symbols-outlined">account_balance</span></span>
+                      <div>
+                        <button type="button" class="dashboard-resource-link dashboard-resource-title" (click)="openDashboardAccountById(account.id)">{{ account.nomeDoBanco || "Conta bancária" }}</button>
+                      </div>
+                      <div class="dashboard-account-value">
+                        <small>Crédito utilizado: {{ dashboardAccountCreditLabel(account) }}</small>
+                        <b class="dashboard-account-balance">{{ money(account.saldoCorrente) }}</b>
+                      </div>
+                    </div>
+                  } @empty {
+                    <div class="dashboard-empty">Nenhuma conta disponível.</div>
+                  }
+                  @if (dashboardData()?.snapshotHistoricoDisponivel && dashboardAccountSnapshots().length) {
+                    <div class="dash-title dashboard-subsection-title">FECHAMENTO DO MÊS</div>
+                    @for (snapshot of dashboardAccountSnapshots(); track snapshot.contaBancariaId ?? snapshot.nomeDoBanco) {
+                      <div class="dash-transaction dashboard-snapshot-row">
+                        <div>
+                          <button type="button" class="dashboard-resource-link dashboard-resource-title" (click)="openDashboardAccountById(snapshot.contaBancariaId)">{{ snapshot.nomeDoBanco || "Conta bancária" }}</button>
+                          <small>Entradas: {{ money(snapshot.totalEntradas) }} · Saídas: {{ money(snapshot.totalSaidas) }} · {{ shortDate(snapshot.dataFechamento) }}</small>
+                        </div>
+                        <b>{{ money(snapshot.saldoFinal) }}</b>
+                      </div>
+                    }
+                  }
+                </div>
+                <div class="dash-section overview-entries">
+                  <div class="dash-title">ÚLTIMOS LANÇAMENTOS</div>
+                  @for (entry of dashboardEntries(); track (entry.dataLancamento ?? '') + (entry.descricao ?? '') + (entry.faturaId ?? '')) {
+                    <div class="dash-transaction">
+                      <small class="dashboard-entry-date">{{ shortDate(entry.dataLancamento) }}</small>
+                      <span class="dash-tx-icon"><span class="material-symbols-outlined">description</span></span>
+                      <div>
+                        <strong>{{ entry.descricao || "Lançamento" }}</strong>
+                      </div>
+                      <div class="dashboard-entry-value">
+                        @if (entry.faturaId && entry.numeroParcela && entry.totalParcelas && entry.totalParcelas > 1) {
+                          <small>Parcela {{ entry.numeroParcela }}/{{ entry.totalParcelas }}</small>
+                        }
+                        @if (entry.faturaId && dashboardEntryInvoiceHref(entry.faturaId); as invoiceHref) {
+                          <a
+                            class="dashboard-resource-link dashboard-entry-invoice-link"
+                            [href]="invoiceHref"
+                            title="Abrir fatura"
+                            [attr.aria-label]="'Abrir fatura ' + entry.faturaId"
+                          ><span class="material-symbols-outlined">receipt_long</span></a>
+                        } @else if (entry.faturaId) {
+                          <button
+                            type="button"
+                            class="dashboard-resource-link dashboard-entry-invoice-link"
+                            title="Abrir fatura"
+                            [attr.aria-label]="'Abrir fatura ' + entry.faturaId"
+                            (click)="openDashboardEntryInvoice(entry.faturaId)"
+                          ><span class="material-symbols-outlined">receipt_long</span></button>
+                        }
+                        <b>{{ money(entry.valor) }}</b>
+                      </div>
+                    </div>
+                  } @empty {
+                    <div class="dashboard-empty">Nenhum lançamento disponível.</div>
+                  }
+                </div>
+                <div class="dash-section overview-investments">
+                  <div class="dash-title">INVESTIMENTOS</div>
+                  @for (investment of dashboardInvestments(); track investment.id) {
+                    <div class="dash-transaction">
+                      <small class="dashboard-entry-date">{{ shortDate(investment.dataInicio) }}</small>
+                      <span class="dash-tx-icon"><span class="material-symbols-outlined">trending_up</span></span>
+                      <div>
+                        <button type="button" class="dashboard-resource-link dashboard-resource-title" (click)="openDashboardResource('investments', investment.id)">{{ investment.categoria || "Investimento" }}</button>
+                      </div>
+                      <b>{{ money(investment.valorCorrente ?? investment.valorInicial) }}</b>
+                    </div>
+                  } @empty {
+                    <div class="dashboard-empty">Nenhum investimento disponível.</div>
+                  }
+                  @if (dashboardData()?.snapshotInvestimentosHistoricoDisponivel && dashboardInvestmentSnapshots().length) {
+                    <div class="dash-title dashboard-subsection-title">FECHAMENTO DO MÊS</div>
+                    @for (snapshot of dashboardInvestmentSnapshots(); track snapshot.investimentoId ?? snapshot.categoria) {
+                      <div class="dash-transaction dashboard-snapshot-row">
+                        <div>
+                          <button type="button" class="dashboard-resource-link dashboard-resource-title" (click)="openDashboardResource('investments', snapshot.investimentoId)">{{ snapshot.categoria || "Investimento" }}</button>
+                          <small>{{ shortDate(snapshot.dataFechamento) }}</small>
+                        </div>
+                        <b>{{ money(snapshot.valorFinal) }}</b>
+                      </div>
+                    }
+                  }
+                </div>
+                <div class="dash-section overview-goals">
+                  <div class="dash-title">METAS FINANCEIRAS</div>
+                  @for (goal of dashboardGoals(); track goal.id) {
+                    <div class="dash-transaction">
+                      <span class="dash-tx-icon"><span class="material-symbols-outlined">flag</span></span>
+                      <div>
+                        <button type="button" class="dashboard-resource-link dashboard-resource-title" (click)="openDashboardResource('goals', goal.id)">{{ goal.objetivo || "Meta financeira" }}</button>
+                        <small>Conclusão: {{ fullDate(goal.dataConclusaoPrevista) }}</small>
+                      </div>
+                      <b>{{ money(goal.valorAcumulado) }} / {{ money(goal.valorAlvo) }}</b>
+                    </div>
+                  } @empty {
+                    <div class="dashboard-empty">Nenhuma meta disponível.</div>
                   }
                 </div>
               </div>
@@ -1920,12 +2174,6 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
               </div>
             }
           </section>
-          @if (active() === "overview") {
-            <app-monthly-line-chart
-              [records]="store.sections().transactions.records"
-              [month]="store.overviewSelection().value"
-            />
-          }
         </main>
       </div>
     </div>
@@ -1990,7 +2238,7 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
               ><span class="material-symbols-outlined">lock</span>
             </div>
           </div>
-          <div class="movement-category-field">
+          <div class="movement-category-field" [class.popup-open]="categoryPickerOpen()">
             <span class="movement-field-label">Categoria</span>
             <div class="movement-selection-control">
               @if (selectedMovementCategory(); as category) {
@@ -2089,13 +2337,17 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                   </button>
                 } @empty {
                   <div class="movement-category-empty">
-                    Nenhuma categoria disponível.
+                    <span>Nenhuma categoria disponível.</span>
+                    <button type="button" class="movement-category-create" (click)="createCategoryFromMovement()">
+                      <span class="material-symbols-outlined">add</span>
+                      Criar categoria
+                    </button>
                   </div>
                 }
               </div>
             }
           </div>
-          <div class="movement-payment-field">
+          <div class="movement-payment-field" [class.popup-open]="paymentPickerOpen()">
             <span class="movement-field-label">Forma de pagamento</span>
             <div class="movement-selection-control">
               @if (selectedMovementPayment(); as payment) {
@@ -2446,14 +2698,28 @@ export class FinanceShellComponent {
     () => this.activeAccount()?.title ?? "",
   );
   private readonly activeAccountUrlEffect = effect(() => {
+    if (this.active() === "overview") {
+      this.loadingTarget.set("detail");
+      this.store.loadDashboard(false, this.store.overviewSelection().value);
+      this.store.loadSection("cardCredit");
+    }
     const requestedSection = sectionFromRouteSegment(this.route.snapshot.paramMap.get("section"));
     const requestedRecordId = this.route.snapshot.paramMap.get("recordId");
     const routeCardId = this.route.snapshot.paramMap.get("cardId");
     const routeInvoiceId = this.route.snapshot.paramMap.get("invoiceId");
-    const routeCardTab: "invoices" | "overview" = this.route.snapshot.paramMap.get("cardId") && this.route.snapshot.url.some((segment) => segment.path === "faturas") ? "invoices" : "overview";
+    const requestedTab = this.tabFromUrl(this.route.snapshot.queryParamMap.get("aba"));
+    const routeCardTab: "invoices" | "overview" = requestedTab === "invoices" || requestedTab === "overview"
+      ? requestedTab
+      : this.route.snapshot.paramMap.get("cardId") && this.route.snapshot.url.some((segment) => segment.path === "faturas") ? "invoices" : "overview";
     if (requestedSection && this.active() !== requestedSection) {
       this.store.navigate(requestedSection);
       this.store.loadSection(requestedSection);
+    }
+    if (requestedSection === "accounts" && (requestedTab === "overview" || requestedTab === "movements" || requestedTab === "entries")) {
+      this.store.setAccountTab(requestedTab);
+    }
+    if (requestedSection === "categories" && (requestedTab === "overview" || requestedTab === "budgets")) {
+      this.store.setCategoryTab(requestedTab);
     }
     if (routeCardId && this.store.sections().cardCredit.records.length === 0) {
       this.store.loadSection("cardCredit");
@@ -2463,8 +2729,7 @@ export class FinanceShellComponent {
       const card = this.store.sections().cardCredit.records.find((record) => record.apiId === routeCardId);
       if (card && this.active() === "cardCredit") {
         if (this.store.selectedId() !== card.id) this.store.selectRecord(card.id);
-        this.store.setCardTab(routeCardTab);
-        if (routeInvoiceId && this.invoiceDetailRequestedId() !== routeInvoiceId) {
+        if (routeInvoiceId && this.activeAccountId() && this.invoiceDetailRequestedId() !== routeInvoiceId) {
           this.loadInvoiceDetailById(routeInvoiceId);
         }
       }
@@ -2487,6 +2752,14 @@ export class FinanceShellComponent {
     } else if (!account && requestedId) {
       if (this.activeAccountId() !== null) this.store.setActiveAccountId(null);
       void this.router.navigate(["/visao-geral"]);
+    }
+    if (routeCardId && this.active() === "cardCredit" && this.activeAccountId()) {
+      const card = this.store.sections().cardCredit.records.find((record) => record.apiId === routeCardId);
+      if (card) {
+        if (this.store.cardTab() !== routeCardTab) this.setCardTab(routeCardTab);
+        else if (card.cardType === "CREDITO" && !this.store.loading() && this.store.sections().invoices.records.length === 0) this.loadRouteCardInvoices(card.apiId!);
+        if (routeInvoiceId && !this.invoiceDetail() && !this.store.loading()) this.loadInvoiceDetailById(routeInvoiceId);
+      }
     }
   });
   private readonly accountSectionGuardEffect = effect(() => {
@@ -2591,6 +2864,7 @@ export class FinanceShellComponent {
   readonly invoiceDetailRequestedId = signal<string | null>(null);
   readonly statementPanelOpen = signal(false);
   readonly statementMode = signal<"statements" | "transactions">("statements");
+  readonly overviewTab = signal<"summary" | "invoices" | "budgets" | "movements" | "accounts" | "entries" | "investments" | "goals">(this.readOverviewTabFromUrl());
   readonly statementDetail = signal<FinanceRecord | null>(null);
   readonly statementDetailLoading = signal(false);
   private statementDetailRevealTimer: ReturnType<typeof setTimeout> | null = null;
@@ -2629,7 +2903,7 @@ export class FinanceShellComponent {
       icon: "credit_card",
     },
     { value: "CARTAO_DEBITO", label: "Cartão de débito", icon: "credit_card" },
-    { value: "VOUNCHER", label: "Voucher", icon: "confirmation_number" },
+    { value: "VOUCHER", label: "Voucher", icon: "confirmation_number" },
     { value: "OUTRO", label: "Outro", icon: "more_horiz" },
   ];
   readonly categoryColors = [
@@ -2739,6 +3013,46 @@ export class FinanceShellComponent {
           record.amount !== undefined,
       ),
   );
+  readonly dashboardData = this.store.dashboard;
+  readonly dashboardRecords = computed(() =>
+    (this.dashboardData()?.ultimasMovimentacoes ?? [])
+      .filter((item) => item.id !== undefined && item.dataLancamento !== undefined && item.valorTotal !== undefined)
+      .map((item) => ({
+        id: item.id!,
+        apiId: item.id,
+        title: item.descricao?.trim() || "Movimentação",
+        category: item.categoriaId ?? "",
+        amount: item.valorTotal!,
+        date: item.dataLancamento!,
+        type: item.valorTotal! >= 0 ? "income" as const : "expense" as const,
+        method: item.metodoPagamento,
+        recurring: item.ehRecorrente,
+        nextRecurrence: item.proximaRecorrencia,
+        installments: item.qntParcelas,
+      })),
+  );
+  readonly dashboardBudgetTotals = computed(() => {
+    const budgets = this.dashboardData()?.orcamentos ?? [];
+    const values = budgets
+      .filter((item) => item.categoria !== undefined && item.valorCorrente !== undefined)
+      .map((item) => ({ name: item.categoria!, amount: item.valorCorrente!, limit: item.valorLimite ?? 0 }));
+    return values.map((item) => ({ ...item, width: item.limit > 0 ? Math.min((item.amount / item.limit) * 100, 100) : 0 }));
+  });
+  readonly dashboardUpcomingInvoices = computed(() => {
+    const dashboard = this.dashboardData();
+    if (dashboard?.proximasFaturas?.length) return dashboard.proximasFaturas;
+    const legacyInvoices = (dashboard?.faturas as unknown);
+    return Array.isArray(legacyInvoices) ? legacyInvoices as DashboardInvoice[] : [];
+  });
+  readonly dashboardInvoiceSummary = computed(() => this.dashboardData()?.faturas ?? {});
+  readonly dashboardAccounts = computed(() => this.dashboardData()?.contas ?? []);
+  readonly dashboardAccountSnapshots = computed(() => this.dashboardData()?.contasNoMes ?? []);
+  readonly dashboardAllEntries = computed(() => this.dashboardData()?.ultimosLancamentos ?? []);
+  readonly dashboardEntries = computed(() => this.dashboardAllEntries().filter((entry) => !entry.faturaId));
+  readonly dashboardInvestments = computed(() => this.dashboardData()?.investimentos ?? []);
+  readonly dashboardInvestmentSnapshots = computed(() => this.dashboardData()?.investimentosNoMes ?? []);
+  readonly collapsedDashboardInvoices = signal<Set<string>>(new Set());
+  readonly dashboardGoals = computed(() => this.dashboardData()?.metas ?? []);
   readonly income = computed(() =>
     this.periodRecords()
       .filter((record) => record.type === "income")
@@ -2771,6 +3085,10 @@ export class FinanceShellComponent {
     }));
   });
   constructor() {
+    const urlMonth = this.route.snapshot.queryParamMap.get("mesReferencia");
+    if (this.isOverviewMonth(urlMonth)) {
+      this.store.selectOverview({ type: "month", value: urlMonth });
+    }
     this.destroyRef.onDestroy(() => {
       for (const timer of [
         this.loadingTimer,
@@ -2929,7 +3247,12 @@ export class FinanceShellComponent {
     this.userMenuOpen.set(false);
   }
   selectOverview(selection: OverviewSelection): void {
-    if (selection.type === "month") this.store.selectOverview(selection);
+    if (selection.type === "month") {
+      this.store.selectOverview(selection);
+      this.updateOverviewUrl(selection.value, this.overviewTab());
+      this.loadingTarget.set("detail");
+      this.store.loadDashboard(true, selection.value);
+    }
   }
   selectRecord(id: string): void {
     if (this.categorySaving()) return;
@@ -2970,6 +3293,17 @@ export class FinanceShellComponent {
   }
   clearSelection(): void {
     this.store.selectRecord(null);
+    this.invoiceDetail.set(null);
+    this.invoiceDetailRequestedId.set(null);
+    this.closeMovementDetail();
+    const accountId = this.activeAccountId();
+    const active = this.active();
+    const commands = accountId && this.isAccountDependent(active)
+      ? ["/conta", accountId, this.sectionRoute(active)]
+      : active === "overview"
+        ? ["/visao-geral"]
+        : [this.sectionRoute(active)];
+    void this.router.navigate(commands, { replaceUrl: true });
   }
   onQueryInput(event: Event): void {
     this.setQuery((event.target as HTMLInputElement).value);
@@ -2979,6 +3313,11 @@ export class FinanceShellComponent {
   }
   reloadRecords(): void {
     this.loadingTarget.set("list");
+    if (this.active() === "overview") {
+      this.loadingTarget.set("detail");
+      this.store.loadDashboard(true, this.store.overviewSelection().value);
+      return;
+    }
     if (this.active() === "statements" && this.statementMode() === "transactions") {
       this.loadTransactionRecords();
       return;
@@ -3116,6 +3455,7 @@ export class FinanceShellComponent {
   }
   setAccountTab(tab: "overview" | "movements" | "entries"): void {
     this.store.setAccountTab(tab);
+    this.updateTabUrl(tab);
     const record = this.selectedRecord();
     if (record?.apiId && tab !== "overview") {
       this.loadingTarget.set("detail");
@@ -3142,8 +3482,16 @@ export class FinanceShellComponent {
     if (record?.apiId && this.activeAccountId()) this.updateCardUrl(record.apiId, tab);
     if (tab === "overview" && record?.apiId && record.cardType === "CREDITO") {
       this.loadingTarget.set("detail");
-      this.store.loadInvoices(record.apiId, this.periodForMonth(this.invoiceMonth()));
+      const accountId = this.activeAccountId();
+      if (accountId) this.store.loadInvoices(accountId, record.apiId, this.periodForMonth(this.invoiceMonth()));
     }
+    if (tab === "invoices" && record?.apiId && record.cardType === "CREDITO") this.loadRouteCardInvoices(record.apiId);
+  }
+  private loadRouteCardInvoices(cardId: string): void {
+    const accountId = this.activeAccountId();
+    if (!accountId) return;
+    this.loadingTarget.set("detail");
+    this.store.loadInvoices(accountId, cardId, this.periodForMonth(this.invoiceMonth()));
   }
   setInvoiceMonth(month: string): void {
     if (!month) return;
@@ -3187,7 +3535,8 @@ export class FinanceShellComponent {
     this.loadingTarget.set("detail");
     const period = this.invoicePeriodRange() ?? this.periodForMonth(this.invoiceMonth());
     this.updatePeriodQuery({ dataInicial: period.dataInicial, dataFinal: period.dataFinal, consulta: "faturas" });
-    this.store.loadInvoices(record.apiId, period);
+    const accountId = this.activeAccountId();
+    if (accountId) this.store.loadInvoices(accountId, record.apiId, period);
   }
   openInvoiceDetail(invoice: FinanceRecord): void {
     if (!invoice.apiId) return;
@@ -3205,8 +3554,16 @@ export class FinanceShellComponent {
   private loadInvoiceDetailById(invoiceId: string): void {
     this.invoiceDetailRequestedId.set(invoiceId);
     this.loadingTarget.set("detail");
-    this.store.loadInvoiceDetail(invoiceId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((detail) => {
+    const cardId = this.selectedRecord()?.apiId;
+    const accountId = this.activeAccountId();
+    if (!cardId || !accountId) return;
+    this.store.loadInvoiceDetail(accountId, cardId, invoiceId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((detail) => {
       if (detail) this.invoiceDetail.set(detail);
+    });
+  }
+  payInvoice(invoiceId: string): void {
+    this.store.payInvoice(invoiceId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((paid) => {
+      if (paid) this.loadInvoiceDetailById(invoiceId);
     });
   }
   closeInvoiceDetail(): void {
@@ -3221,8 +3578,71 @@ export class FinanceShellComponent {
       });
     }
   }
+  setOverviewTab(tab: "summary" | "invoices" | "budgets" | "movements" | "accounts" | "entries" | "investments" | "goals"): void {
+    this.overviewTab.set(tab);
+    this.updateOverviewUrl(this.store.overviewSelection().value, tab);
+  }
+  private updateOverviewUrl(mesReferencia: string, aba: "summary" | "invoices" | "budgets" | "movements" | "accounts" | "entries" | "investments" | "goals"): void {
+    if (this.active() !== "overview") return;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { mesReferencia, aba: this.tabToUrl(aba) },
+      queryParamsHandling: "merge",
+      replaceUrl: true,
+    });
+  }
+  private updateTabUrl(aba: string): void {
+    const urlTab = this.active() === "accounts"
+      ? this.accountTabToUrl(aba)
+      : this.active() === "categories"
+        ? this.categoryTabToUrl(aba)
+        : this.tabToUrl(aba);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { aba: urlTab },
+      queryParamsHandling: "merge",
+      replaceUrl: true,
+    });
+  }
+  private isOverviewMonth(value: string | null): value is string {
+    return value !== null && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+  }
+  private readOverviewTabFromUrl(): "summary" | "invoices" | "budgets" | "movements" | "accounts" | "entries" | "investments" | "goals" {
+    const value = this.tabFromUrl(this.route.snapshot.queryParamMap.get("aba"));
+    return ["summary", "invoices", "budgets", "movements", "accounts", "entries", "investments", "goals"].includes(value)
+      ? value as "summary" | "invoices" | "budgets" | "movements" | "accounts" | "entries" | "investments" | "goals"
+      : "summary";
+  }
+  private tabFromUrl(value: string | null): string {
+    const tabs: Record<string, string> = {
+      resumo: "summary", summary: "summary",
+      faturas: "invoices", invoices: "invoices",
+      orcamentos: "budgets", budgets: "budgets",
+      movimentacoes: "movements", movements: "movements",
+      contas: "accounts", accounts: "accounts",
+      lancamentos: "entries", entries: "entries",
+      investimentos: "investments", investments: "investments",
+      metas: "goals", goals: "goals",
+      "visao-geral": "overview", overview: "overview",
+    };
+    return tabs[value ?? ""] ?? "";
+  }
+  private tabToUrl(tab: string): string {
+    return {
+      summary: "resumo", invoices: "faturas", budgets: "orcamentos",
+      movements: "movimentacoes", accounts: "contas", entries: "lancamentos",
+      investments: "investimentos", goals: "metas", overview: "visao-geral",
+    }[tab] ?? tab;
+  }
+  private accountTabToUrl(tab: string): string {
+    return { overview: "visao-geral", movements: "movimentacoes", entries: "lancamentos" }[tab] ?? this.tabToUrl(tab);
+  }
+  private categoryTabToUrl(tab: string): string {
+    return { overview: "visao-geral", budgets: "orcamentos" }[tab] ?? this.tabToUrl(tab);
+  }
   setCategoryTab(tab: CategoryTab): void {
     this.store.setCategoryTab(tab);
+    this.updateTabUrl(tab);
     const record = this.selectedRecord();
     if (record?.apiId && tab === "budgets") {
       this.loadingTarget.set("detail");
@@ -3326,7 +3746,7 @@ export class FinanceShellComponent {
       tab === "invoices"
         ? ["/conta", accountId, "cartoes", cardId, "faturas"]
         : ["/conta", accountId, "cartoes", cardId],
-      { replaceUrl: true },
+      { queryParams: { aba: this.tabToUrl(tab) }, queryParamsHandling: "merge", replaceUrl: true },
     );
   }
   closeMovementAside(): void {
@@ -3467,13 +3887,12 @@ export class FinanceShellComponent {
       valorTotal: Math.abs(value.amount),
       metodoPagamento: value.method,
       categoriaId: value.categoryId,
-      ...(value.date ? { dataLancamento: value.date } : {}),
+      dataLancamento: value.date,
       ...(value.description.trim()
         ? { descricao: value.description.trim() }
         : {}),
       ehRecorrente: value.recurring,
-      ...(value.installments &&
-      (value.recurring || (creditCardPayment && value.installments > 1))
+      ...(value.recurring && value.installments
         ? { quantidadeParcelas: value.installments }
         : {}),
       ...(cardPayment && value.cardId ? { cartaoId: value.cardId } : {}),
@@ -3495,6 +3914,12 @@ export class FinanceShellComponent {
     this.store.clearError();
     this.categoryFormOpen.set(true);
     this.categoryForm.reset({ name: "", type: "", color: "", icon: "" });
+  }
+  createCategoryFromMovement(): void {
+    this.categoryPickerOpen.set(false);
+    this.closeMovementAside();
+    this.navigate({ key: "categories", label: "Categorias", icon: "sell" });
+    this.openCategoryForm();
   }
   openAccountForm(): void {
     this.store.selectRecord(null);
@@ -3870,7 +4295,8 @@ export class FinanceShellComponent {
   }
   monthReference(value: string | undefined): string {
     if (!value) return "Mês indisponível";
-    const date = new Date(`${value}-01T12:00:00`);
+    const month = value.slice(0, 7);
+    const date = new Date(`${month}-01T12:00:00`);
     return Number.isNaN(date.getTime())
       ? "Mês indisponível"
       : new Intl.DateTimeFormat("pt-BR", {
@@ -3959,6 +4385,123 @@ export class FinanceShellComponent {
     return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" })
       .format(new Date(`${value}-01T12:00:00`))
       .toUpperCase();
+  }
+  dashboardMonthLabel(): string {
+    const value = this.dashboardData()?.mesReferencia ?? this.store.overviewSelection().value;
+    const date = new Date(`${value}-01T12:00:00`);
+    return Number.isNaN(date.getTime())
+      ? value
+      : new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(date).toUpperCase();
+  }
+  dashboardInvoiceLabel(value: string | undefined): string {
+    if (!value) return "Fatura";
+    const date = new Date(`${value.slice(0, 7)}-01T12:00:00`);
+    if (Number.isNaN(date.getTime())) return value;
+    return `Fatura ${new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(date)}`;
+  }
+  dashboardInvoiceDeadlineLabel(invoice: DashboardInvoice): string {
+    const closingDate = invoice.dataFechamento;
+    const dueDate = invoice.dataVencimento;
+    if (closingDate && closingDate < this.currentDate) return `Vencimento: ${this.shortDate(dueDate)}`;
+    return `Fechamento: ${this.shortDate(closingDate)}`;
+  }
+  dashboardInvoiceEntries(invoiceId: string | undefined) {
+    if (!invoiceId) return [];
+    return this.dashboardAllEntries().filter((entry) => entry.faturaId === invoiceId);
+  }
+  isDashboardInvoiceExpanded(invoiceId: string | undefined): boolean {
+    return invoiceId ? !this.collapsedDashboardInvoices().has(invoiceId) : true;
+  }
+  toggleDashboardInvoice(invoiceId: string | undefined): void {
+    if (!invoiceId) return;
+    const collapsed = new Set(this.collapsedDashboardInvoices());
+    if (collapsed.has(invoiceId)) collapsed.delete(invoiceId);
+    else collapsed.add(invoiceId);
+    this.collapsedDashboardInvoices.set(collapsed);
+  }
+  dashboardAccountCreditLabel(account: BankAccountResponse): string {
+    const total = account.creditoTotal ?? 0;
+    const used = account.creditoUsado ?? Math.max(total - (account.creditoRestante ?? 0), 0);
+    const format = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+    const percentage = total > 0 ? Math.round((used / total) * 100) : 0;
+    return `${format.format(used)}/${format.format(total)} (${percentage}%)`;
+  }
+  dashboardInvoiceCard(invoice: DashboardInvoice): FinanceRecord | null {
+    return this.store.sections().cards.records.find((record) => record.apiId === invoice.cartaoId) ?? null;
+  }
+  dashboardInvoiceAccountId(invoice: DashboardInvoice): string | null {
+    return this.dashboardInvoiceCard(invoice)?.accountId ?? null;
+  }
+  openDashboardCard(invoice: DashboardInvoice): void {
+    const card = this.dashboardInvoiceCard(invoice);
+    if (!card?.apiId || !card.accountId) {
+      this.store.navigate("cardCredit");
+      void this.router.navigate([this.sectionRoute("cardCredit")], { replaceUrl: true });
+      return;
+    }
+    this.store.setActiveAccountId(card.accountId);
+    this.store.navigate("cardCredit");
+    this.store.selectRecord(card.id);
+    void this.router.navigate(["/conta", card.accountId, "cartoes", card.apiId], { replaceUrl: true });
+  }
+  openDashboardAccount(invoice: DashboardInvoice): void {
+    const accountId = this.dashboardInvoiceAccountId(invoice);
+    if (!accountId) {
+      this.store.navigate("accounts");
+      void this.router.navigate([this.sectionRoute("accounts")], { replaceUrl: true });
+      return;
+    }
+    this.openDashboardAccountById(accountId);
+  }
+  openDashboardAccountById(accountId: string | undefined): void {
+    if (!accountId) {
+      this.store.navigate("accounts");
+      void this.router.navigate([this.sectionRoute("accounts")], { replaceUrl: true });
+      return;
+    }
+    this.store.setActiveAccountId(accountId);
+    this.store.navigate("accounts");
+    this.store.selectRecord(accountId);
+    void this.router.navigate(["/conta", accountId, this.sectionRoute("accounts")], { replaceUrl: true });
+  }
+  openDashboardResource(section: "investments" | "goals", id: string | undefined): void {
+    this.store.navigate(section);
+    void this.router.navigate(
+      id ? [this.sectionRoute(section), id] : [this.sectionRoute(section)],
+      { replaceUrl: true },
+    );
+  }
+  openDashboardEntryInvoice(invoiceId: string | undefined): void {
+    if (!invoiceId) return;
+
+    const invoiceRecord = this.store.sections().invoices.records.find((record) => record.apiId === invoiceId);
+    if (invoiceRecord) {
+      this.openInvoiceDetail(invoiceRecord);
+      return;
+    }
+
+    const invoice = this.dashboardUpcomingInvoices().find((item) => item.id === invoiceId);
+    const accountId = this.route.snapshot.paramMap.get("accountId") ?? (invoice ? this.dashboardInvoiceAccountId(invoice) : null);
+    const cardId = invoice?.cartaoId;
+    if (accountId && cardId) {
+      void this.router.navigate(["/conta", accountId, "cartoes", cardId, "faturas", invoiceId], {
+        queryParams: { dataInicial: this.invoicePeriodForFilter().from, dataFinal: this.invoicePeriodForFilter().to, consulta: "faturas" },
+        replaceUrl: true,
+      });
+      return;
+    }
+
+    if (invoice) this.openDashboardCard(invoice);
+  }
+  dashboardEntryInvoiceHref(invoiceId: string | undefined): string | null {
+    if (!invoiceId) return null;
+    const invoice = this.dashboardUpcomingInvoices().find((item) => item.id === invoiceId);
+    const accountId = this.route.snapshot.paramMap.get("accountId") ?? (invoice ? this.dashboardInvoiceAccountId(invoice) : null);
+    const cardId = invoice?.cartaoId;
+    if (!accountId || !cardId) return null;
+    return this.router.serializeUrl(this.router.createUrlTree(["/conta", accountId, "cartoes", cardId, "faturas", invoiceId], {
+      queryParams: { dataInicial: this.invoicePeriodForFilter().from, dataFinal: this.invoicePeriodForFilter().to, consulta: "faturas" },
+    }));
   }
   private currentPeriod(): { dataInicial: string; dataFinal: string } {
     return this.periodForMonth(this.store.overviewSelection().value);

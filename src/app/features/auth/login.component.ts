@@ -56,6 +56,7 @@ import { NotificationService } from "../../core/notifications/notification.servi
 						>
 					</button>
 				</form>
+				<button type="button" class="login-register-link" (click)="goToRegister()">Ainda não tenho uma conta · Criar cadastro</button>
 			</div>
 			<div class="login-art" aria-hidden="true">
 				<svg
@@ -505,6 +506,17 @@ import { NotificationService } from "../../core/notifications/notification.servi
 			.login-submit .material-symbols-outlined {
 				font-size: 17px;
 			}
+			.login-register-link {
+				width: fit-content;
+				margin-top: 18px;
+				padding: 0;
+				border: 0;
+				background: transparent;
+				color: #ed3114;
+				font: 700 12px Inter, sans-serif;
+				cursor: pointer;
+			}
+			.login-register-link:hover { text-decoration: underline; }
 			.login-art {
 				position: relative;
 				min-height: 100dvh;
@@ -594,4 +606,5 @@ export class LoginComponent {
 			},
 		});
 	}
+	goToRegister(): void { void this.router.navigate(["/cadastro"]); }
 }
