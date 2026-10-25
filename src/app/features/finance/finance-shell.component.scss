@@ -3,6 +3,12 @@
 .statement-search-card:hover { border-color:#ed3114; background:#292b33; box-shadow:0 8px 18px rgb(0 0 0 / 18%); }
 .statement-search-icon { background:#45251f; color:#ff8b73; }
 .category-form-panel { position: relative; display: flex; flex-direction: column; height: 100%; min-height: 100%; padding-bottom: 110px; overflow-y: auto; }
+.content.telegram-layout { display: block; overflow: auto; }
+.content.telegram-layout > .list-panel,
+.content.telegram-layout > .detail-panel { display: none !important; }
+.category-detail-actions { display: flex; gap: 8px; margin-left: auto; }
+.category-detail-actions .category-detail-close { margin-left: 0; }
+.category-form .category-icon-input { font-family: "DM Sans", sans-serif; font-feature-settings: "liga" 0; font-variant-ligatures: none; }
 .category-form-panel > .category-form { flex: 1 0 auto; }
 .category-form-actions { position: absolute; right: 48px; bottom: 24px; left: 48px; z-index: 3; width: auto; box-sizing: border-box; margin: 0; padding: 18px 0 0; border-top: 1px solid #303238; background: #17191e; }
 .movement-aside .movement-form { flex: 1 0 auto; }

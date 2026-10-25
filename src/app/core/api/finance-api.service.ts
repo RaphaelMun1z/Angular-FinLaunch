@@ -5,7 +5,7 @@ import {
   BankAccountRequest, BankAccountResponse, BankAccountUpdateRequest, BudgetRequest, BudgetResponse, CardRequest, CardResponse,
   CategoryRequest, CategoryResponse, EntryResponse, GoalRequest, GoalResponse, InvestmentRequest,
   DashboardResponse, HistoricalPeriodsResponse, InvestmentResponse, InvoiceResponse, LoginRequest, LoginResponse, MovementRequest, MovementResponse, MovementUpdateRequest, RecurrenceRequest, RegisterRequest,
-  PeriodRequest, UserDetailsResponse,
+  PeriodRequest, TelegramLinkCodeResponse, UserDetailsResponse,
 } from "./api.models";
 import { environment } from "../../../environments/environment";
 
@@ -27,6 +27,8 @@ export class FinanceApiService {
     return this.http.get<DashboardResponse>(`${this.baseUrl}/dashboard`, params ? { params } : undefined);
   }
   historicalPeriods(): Observable<HistoricalPeriodsResponse> { return this.http.get<HistoricalPeriodsResponse>(`${this.baseUrl}/dashboard/periodos-com-historico`); }
+  getTelegramLinkCode(): Observable<TelegramLinkCodeResponse> { return this.http.get<TelegramLinkCodeResponse>(`${this.baseUrl}/telegram/vinculo`); }
+  generateTelegramLinkCode(): Observable<TelegramLinkCodeResponse> { return this.http.post<TelegramLinkCodeResponse>(`${this.baseUrl}/telegram/vinculo`, undefined); }
 
   listGoals(): Observable<GoalResponse[]> { return this.http.get<GoalResponse[]>(`${this.baseUrl}/metas-financeiras`); }
   createGoal(body: GoalRequest): Observable<GoalResponse> { return this.http.post<GoalResponse>(`${this.baseUrl}/metas-financeiras`, body); }

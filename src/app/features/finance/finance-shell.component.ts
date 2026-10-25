@@ -41,6 +41,7 @@ import { FinanceHeaderComponent } from "../../layout/header/finance-header.compo
 import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.component";
 import { CurrencyInputDirective } from "../../shared/directives/currency-input.directive";
 import { DatePickerComponent } from "../../shared/components/date-picker.component";
+import { TelegramSettingsComponent } from "./telegram-settings.component";
 @Component({
   selector: "app-finance-shell",
   standalone: true,
@@ -54,6 +55,7 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
     FinanceSidebarComponent,
     CurrencyInputDirective,
     DatePickerComponent,
+    TelegramSettingsComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./finance-shell.component.scss",
@@ -176,6 +178,7 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
         <main
           class="content"
           [class.overview-layout]="active() === 'overview'"
+          [class.telegram-layout]="active() === 'telegram'"
           [class.form-layout]="
             categoryFormOpen() ||
             accountFormOpen() ||
@@ -184,6 +187,9 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
             investmentFormOpen()
           "
         >
+          @if (active() === "telegram") {
+            <app-telegram-settings />
+          }
           <section
             class="list-panel"
             [class.calendar-mode]="active() === 'overview'"
@@ -546,7 +552,7 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
             @if (active() === "categories" && categoryFormOpen()) {
               <div class="category-form-panel">
                 <div class="category-form-heading">
-                  <div><h2>Nova categoria</h2></div>
+                  <div><h2>{{ categoryEditingId() ? "Editar categoria" : "Nova categoria" }}</h2></div>
                   <button
                     type="button"
                     class="category-form-close"
@@ -629,7 +635,9 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                     </fieldset>
                     <label
                       >Ícone *<input
+                        class="category-icon-input"
                         formControlName="icon"
+                        (input)="formatCategoryIconInput($event)"
                         maxlength="50"
                         placeholder="Nome do ícone Material Symbols"
                         autocomplete="off"
@@ -691,7 +699,11 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                     >
                       <span class="material-symbols-outlined">save</span
                       >{{
-                        categorySaving() ? "SALVANDO..." : "SALVAR CATEGORIA"
+                        categorySaving()
+                          ? "SALVANDO..."
+                          : categoryEditingId()
+                            ? "SALVAR ALTERAÇÕES"
+                            : "SALVAR CATEGORIA"
                       }}
                     </button>
                   </div>
@@ -1478,15 +1490,26 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
                         }}</span
                       >
                     </div>
-                    <button
-                      type="button"
-                      class="category-detail-close"
-                      aria-label="Fechar detalhes da categoria"
-                      title="Fechar"
-                      (click)="clearSelection()"
-                    >
-                      <span class="material-symbols-outlined">close</span>
-                    </button>
+                    <div class="category-detail-actions">
+                      <button
+                        type="button"
+                        class="category-detail-close"
+                        aria-label="Editar categoria"
+                        title="Editar categoria"
+                        (click)="editCategory(record)"
+                      >
+                        <span class="material-symbols-outlined">edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="category-detail-close"
+                        aria-label="Fechar detalhes da categoria"
+                        title="Fechar"
+                        (click)="clearSelection()"
+                      >
+                        <span class="material-symbols-outlined">close</span>
+                      </button>
+                    </div>
                   </div>
                   <div class="category-tabs domain-tabs visible" role="tablist">
                     <button
@@ -2467,30 +2490,7 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
             ><input formControlName="recurring" type="checkbox" />Movimentação
             recorrente</label
           >
-          @if (
-            movementForm.controls.recurring.value ||
-            (movementForm.controls.method.value === "CARTAO_CREDITO" &&
-              movementForm.controls.method.value !== "CARTAO_CREDITO")
-          ) {
-            <label
-              >Quantidade de parcelas{{
-                movementForm.controls.method.value === "CARTAO_CREDITO"
-                  ? " (cartão de crédito)"
-                  : ""
-              }}<input
-                formControlName="installments"
-                type="number"
-                min="1"
-                step="1"
-            /></label>
-            @if (
-              movementForm.controls.installments.touched &&
-              movementForm.controls.installments.invalid
-            ) {
-              <small class="field-error">Informe ao menos uma parcela.</small>
-            }
-          }
-          <label>Data<app-date-picker formControlName="date" ariaLabel="Data da movimentação"></app-date-picker></label>
+          <label>{{ movementForm.controls.recurring.value ? "Data da primeira movimentação" : "Data" }}<app-date-picker formControlName="date" ariaLabel="Data da movimentação"></app-date-picker></label>
           @if (
             movementForm.controls.type.invalid &&
             movementForm.controls.type.touched
@@ -2522,7 +2522,7 @@ import { DatePickerComponent } from "../../shared/components/date-picker.compone
             <small class="field-error">Selecione a forma de pagamento.</small>
           }
           @if (store.error(); as error) {
-            <div class="form-error">{{ error }}</div>
+            <div class="form-error" role="alert">{{ error }}</div>
           }
           <div class="category-form-actions movement-aside-actions">
             <button
@@ -2861,6 +2861,7 @@ export class FinanceShellComponent {
   private readonly modalVisible = signal(false);
   readonly categoryFormOpen = signal(false);
   readonly categorySaving = signal(false);
+  readonly categoryEditingId = signal<string | null>(null);
   readonly accountFormOpen = signal(false);
   readonly accountSaving = signal(false);
   readonly cardFormOpen = signal(false);
@@ -3873,9 +3874,7 @@ export class FinanceShellComponent {
     const method = this.movementForm.controls.method.value;
     const cardRequired =
       method === "CARTAO_CREDITO" || method === "CARTAO_DEBITO";
-    const installmentsRequired =
-      this.movementForm.controls.recurring.value ||
-      method === "CARTAO_CREDITO";
+    const installmentsRequired = method === "CARTAO_CREDITO";
     this.movementForm.controls.cardId.setValidators(
       cardRequired ? [Validators.required] : [],
     );
@@ -3919,7 +3918,7 @@ export class FinanceShellComponent {
     }
     const creditCardPayment = value.method === "CARTAO_CREDITO";
     if (
-      (value.recurring || creditCardPayment) &&
+      creditCardPayment &&
       (!value.installments || value.installments < 1)
     ) {
       this.movementForm.controls.installments.markAsTouched();
@@ -3934,7 +3933,7 @@ export class FinanceShellComponent {
         ? { descricao: value.description.trim() }
         : {}),
       ehRecorrente: value.recurring,
-      ...(value.recurring && value.installments
+      ...(creditCardPayment && value.installments
         ? { quantidadeParcelas: value.installments }
         : {}),
       ...(cardPayment && value.cardId ? { cartaoId: value.cardId } : {}),
@@ -3954,8 +3953,23 @@ export class FinanceShellComponent {
   openCategoryForm(): void {
     this.store.selectRecord(null);
     this.store.clearError();
+    this.categoryEditingId.set(null);
     this.categoryFormOpen.set(true);
     this.categoryForm.reset({ name: "", type: "", color: "", icon: "" });
+  }
+  editCategory(record: FinanceRecord): void {
+    const categoryId = record.apiId ?? record.id;
+    if (!categoryId) return;
+    this.store.clearError();
+    this.store.selectRecord(null);
+    this.categoryEditingId.set(categoryId);
+    this.categoryFormOpen.set(true);
+    this.categoryForm.reset({
+      name: record.title,
+      type: record.type === "income" ? "ENTRADA" : "SAIDA",
+      color: record.color ?? "#ed3114",
+      icon: record.icon ?? "sell",
+    });
   }
   createCategoryFromMovement(): void {
     this.categoryPickerOpen.set(false);
@@ -4269,13 +4283,38 @@ export class FinanceShellComponent {
   }
   closeCategoryForm(): void {
     if (!this.categorySaving()) {
+      const categoryId = this.categoryEditingId();
+      if (categoryId) this.store.selectRecord(categoryId);
       this.categoryFormOpen.set(false);
+      this.categoryEditingId.set(null);
       this.categoryForm.reset({ name: "", type: "", color: "", icon: "" });
     }
   }
   selectCategoryColor(color: string): void {
     this.categoryForm.controls.color.setValue(color);
     this.categoryForm.controls.color.markAsTouched();
+  }
+  formatCategoryIconInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const value = input.value;
+    const caret = input.selectionStart ?? value.length;
+    const formatted = this.toCategoryIconName(value);
+    if (formatted === value) return;
+
+    const formattedCaret = this.toCategoryIconName(value.slice(0, caret)).length;
+    input.value = formatted;
+    input.setSelectionRange(formattedCaret, formattedCaret);
+    this.categoryForm.controls.icon.setValue(formatted);
+  }
+  private toCategoryIconName(value: string): string {
+    return value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+      .replace(/[^a-zA-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .replace(/_+/g, "_")
+      .toLowerCase();
   }
   saveCategory(): void {
     if (this.categoryForm.invalid || this.categorySaving()) {
@@ -4284,22 +4323,27 @@ export class FinanceShellComponent {
     }
     const value = this.categoryForm.getRawValue();
     if (!value.type) return;
-    const previousIds = new Set(
-      this.store.sections().categories.records.map((record) => record.id),
-    );
+    const categoryId = this.categoryEditingId();
+    const previousIds = new Set(this.store.sections().categories.records.map((record) => record.id));
+    const request = {
+      nome: value.name.trim(),
+      tipo: value.type,
+      cor: value.color.trim(),
+      icone: value.icon.trim(),
+    };
     this.categorySaving.set(true);
-    this.store
-      .createCategory({
-        nome: value.name.trim(),
-        tipo: value.type,
-        cor: value.color.trim(),
-        icone: value.icon.trim(),
-      })
+    (categoryId
+      ? this.store.updateCategory(categoryId, request)
+      : this.store.createCategory(request))
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (created) => {
+        next: (saved) => {
           this.categorySaving.set(false);
-          if (created) {
+          if (saved) {
+            if (categoryId) {
+              this.closeCategoryForm();
+              return;
+            }
             const newId = this.newRecordId("categories", previousIds);
             this.closeCategoryForm();
             this.triggerCreatedRecordPop(newId);
@@ -4354,40 +4398,7 @@ export class FinanceShellComponent {
       : new Intl.DateTimeFormat("pt-BR").format(date);
   }
   categoryIcon(record: FinanceRecord): string {
-    const supported = new Set([
-      "abc",
-      "account_balance_wallet",
-      "attach_money",
-      "build",
-      "category",
-      "credit_card",
-      "currency_exchange",
-      "directions_car",
-      "fastfood",
-      "fitness_center",
-      "flight",
-      "health_and_safety",
-      "home",
-      "local_dining",
-      "local_gas_station",
-      "movie",
-      "payments",
-      "pets",
-      "phone",
-      "redeem",
-      "restaurant",
-      "savings",
-      "school",
-      "sell",
-      "shopping_bag",
-      "shopping_cart",
-      "sports_esports",
-      "subscriptions",
-      "trending_up",
-      "wifi",
-      "work",
-    ]);
-    return record.icon && supported.has(record.icon) ? record.icon : "sell";
+    return record.icon ? this.toCategoryIconName(record.icon) || "sell" : "sell";
   }
   categoryIconValue(value: string): string {
     return this.categoryIcon({

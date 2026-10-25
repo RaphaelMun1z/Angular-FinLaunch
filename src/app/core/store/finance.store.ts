@@ -67,7 +67,7 @@ export const FinanceStore = signalStore(
     };
     const loadSection = (section: SectionKey, force = false): void => {
       if (loadingSections.has(section) || (!force && loadedSections.has(section))) return;
-      if (section === "overview" || section === "transactions" || section === "statements" || section === "budgets" || section === "invoices") return;
+      if (section === "overview" || section === "transactions" || section === "statements" || section === "budgets" || section === "invoices" || section === "telegram") return;
       loadingSections.add(section);
       patchState(store, { loading: true, error: null });
       const update = (records: FinanceRecord[]): void => {
@@ -275,6 +275,34 @@ export const FinanceStore = signalStore(
           if (!record) { patchState(store, { error: "A categoria foi salva, mas a API não retornou os dados necessários para atualizar a listagem." }); return false; }
           patchState(store, { sections: { ...store.sections(), categories: { ...store.sections().categories, records: [...store.sections().categories.records, record] } }, error: null });
           loadedSections.add("categories");
+          return true;
+        }),
+        catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(false); }),
+      );
+    },
+    updateCategory(categoryId: string, values: CategoryRequest): Observable<boolean> {
+      return api.updateCategory(categoryId, values).pipe(
+        map((updated) => {
+          const record = mapCategoryRecords([updated])[0];
+          if (!record) {
+            patchState(store, { error: "A categoria foi atualizada, mas a API não retornou os dados necessários para atualizar a listagem." });
+            return false;
+          }
+          const previous = store.sections().categories.records.find((item) => item.apiId === categoryId || item.id === categoryId);
+          const refreshedRecord = { ...previous, ...record, budget: record.budget ?? previous?.budget };
+          patchState(store, {
+            sections: {
+              ...store.sections(),
+              categories: {
+                ...store.sections().categories,
+                records: store.sections().categories.records.map((item) =>
+                  item.apiId === categoryId || item.id === categoryId ? refreshedRecord : item,
+                ),
+              },
+            },
+            selectedId: refreshedRecord.id,
+            error: null,
+          });
           return true;
         }),
         catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(false); }),

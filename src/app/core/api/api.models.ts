@@ -22,6 +22,7 @@ export interface MovementRequest { valorTotal: number; metodoPagamento: Movement
 export interface MovementResponse { id?: string; valorTotal?: number; dataLancamento?: string; descricao?: string; metodoPagamento?: MovementMethod; ehRecorrente?: boolean; proximaRecorrencia?: string; qntParcelas?: number; categoriaId?: string; contaBancariaId?: string; }
 export interface MovementUpdateRequest { descricao?: string; }
 export interface RecurrenceRequest { ativa: boolean; }
+export interface TelegramLinkCodeResponse { codigo?: string; }
 export interface EntryResponse {
   id?: string;
   valor?: number;

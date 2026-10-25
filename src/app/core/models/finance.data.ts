@@ -16,6 +16,7 @@ export const sections: Record<SectionKey, SectionData> = {
   invoices: section("invoices", "Faturas", "Acompanhe seus pagamentos e vencimentos.", "fatura"),
   investments: section("investments", "Investimentos", "Acompanhe sua carteira e seus aportes.", "investimento"),
   goals: section("goals", "Meta financeira", "Planeje objetivos e acompanhe seu progresso.", "meta financeira"),
+  telegram: section("telegram", "Telegram", "Configure o vínculo com o bot do Telegram.", "configuração"),
 };
 
 export const navigation: NavItem[] = [
@@ -31,6 +32,7 @@ export const navigation: NavItem[] = [
   { key: "budgets", label: "Orçamentos", icon: "pie_chart" },
   { key: "investments", label: "Investimentos", icon: "monitoring" },
   { key: "goals", label: "Meta financeira", icon: "flag" },
+  { key: "telegram", label: "Telegram", icon: "send" },
 ];
 
 export const sectionRouteSegments: Record<SectionKey, string> = {
@@ -47,6 +49,7 @@ export const sectionRouteSegments: Record<SectionKey, string> = {
   invoices: "faturas",
   investments: "investimentos",
   goals: "metas-financeiras",
+  telegram: "telegram",
 };
 
 export const sectionFromRouteSegment = (segment: string | null): SectionKey | null => {

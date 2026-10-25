@@ -14,7 +14,8 @@ export type SectionKey =
   | "budgets"
   | "invoices"
   | "investments"
-  | "goals";
+  | "goals"
+  | "telegram";
 export type AccountTab = "overview" | "movements" | "entries";
 export type CardTab = "overview" | "invoices";
 export type CategoryTab = "overview" | "budgets";
