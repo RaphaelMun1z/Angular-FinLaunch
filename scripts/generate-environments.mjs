@@ -6,19 +6,23 @@ const envPath = resolve(root, ".env");
 const values = {};
 
 if (existsSync(envPath)) {
-  for (const line of readFileSync(envPath, "utf8").split(/\r?\n/)) {
-    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
-    if (!match || match[1].startsWith("#")) continue;
-    values[match[1]] = match[2].replace(/^(['"])(.*)\1$/, "$2");
-  }
+	for (const line of readFileSync(envPath, "utf8").split(/\r?\n/)) {
+		const match = line.match(
+			/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/,
+		);
+		if (!match || match[1].startsWith("#")) continue;
+		values[match[1]] = match[2].replace(/^(['"])(.*)\1$/, "$2");
+	}
 }
 
-const devUrl = values.API_URL_DEV || "/api";
-const prodUrl = values.API_URL_PROD || "https://seu-backend-de-producao.example.com/api";
+// Variáveis do ambiente (por exemplo, as configuradas no Render) têm prioridade
+// sobre os valores do arquivo .env local.
+const devUrl = process.env.API_URL_DEV || values.API_URL_DEV || "/api";
+const prodUrl = process.env.API_URL_PROD || values.API_URL_PROD || "Não carregou a URL";
 
 const writeEnvironment = (file, production, apiUrl) => {
-  const content = `export const environment = ${JSON.stringify({ production, apiUrl }, null, 2)};\n`;
-  writeFileSync(resolve(root, "src/environments", file), content, "utf8");
+	const content = `export const environment = ${JSON.stringify({ production, apiUrl }, null, 2)};\n`;
+	writeFileSync(resolve(root, "src/environments", file), content, "utf8");
 };
 
 writeEnvironment("environment.ts", false, devUrl);
