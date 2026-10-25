@@ -24,6 +24,9 @@
 .domain-detail.resource-detail-revealed .domain-list > .domain-list-row:nth-child(6) { animation-delay: .25s; }
 .domain-detail.resource-detail-revealed .domain-list > .domain-list-row:nth-child(7) { animation-delay: .3s; }
 .domain-header { display: flex; align-items: center; gap: 20px; padding: 0 0 28px; border: 0; }
+.domain-edit-button { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; margin-left: auto; padding: 0; border: 1px solid #454650; border-radius: 9px; background: #292b33; color: #c9cbd2; cursor: pointer; }
+.domain-edit-button:hover { border-color: #ed3114; color: #ff6745; }
+.domain-edit-button .material-symbols-outlined { font-size: 20px; }
 .domain-icon { display: grid; place-items: center; flex: 0 0 64px; width: 64px; height: 64px; border: 1px solid #454650; border-radius: 14px; background: #303139; color: #ff6745; box-shadow: none; font-size: 29px; }
 .domain-kicker { display: none; }
 .domain-header h2 { margin: 0; color: #fafafa; font: 800 36px/1.08 Inter, sans-serif; letter-spacing: -1.4px; }

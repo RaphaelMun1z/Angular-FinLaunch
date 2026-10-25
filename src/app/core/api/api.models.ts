@@ -49,7 +49,7 @@ export interface CategoryResponse { id?: string; nome?: string; tipo?: CategoryT
 export interface CardCreditRequest { limiteCredito: number; diaFechamento: number; diaVencimento: number; }
 export interface CardVoucherRequest { tipoVoucher: "VA_VR" | "CREDITO_VOUNCHER"; valorRecarga: number; diaRecarga: number; saldoCorrente?: number; }
 export interface CardRequest { tipoCartao: CardType; contaBancariaId: string; apelido: string; cartaoCredito?: CardCreditRequest; cartaoVoucher?: CardVoucherRequest; }
-export interface CardResponse { id?: string; apelido?: string; contaBancariaId?: string; tipoCartao?: CardType | "VA_VR" | "CREDITO_VOUNCHER"; limiteCredito?: number; diaFechamento?: number; diaVencimento?: number; diaRecarga?: number; valorRecarga?: number; saldoCorrente?: number; }
+export interface CardResponse { id?: string; apelido?: string; contaBancariaId?: string; tipoCartao?: CardType; tipoVoucher?: "VA_VR" | "CREDITO_VOUNCHER"; limiteCredito?: number; diaFechamento?: number; diaVencimento?: number; diaRecarga?: number; valorRecarga?: number; saldoCorrente?: number; }
 export interface InvoiceResponse { id?: string; valorTotal?: number; dataReferencia?: string; status?: InvoiceStatus; cartaoDeCreditoId?: string; dataPagamento?: string; valorPago?: number; lancamentos?: EntryResponse[]; }
 export interface DashboardInvoice {
   id?: string;

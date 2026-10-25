@@ -33,6 +33,7 @@ import { navigation, sectionFromRouteSegment, sectionRouteSegments } from "../..
 import {
   CategoryTab,
   FinanceRecord,
+  Filters,
   NavItem,
   OverviewSelection,
   SectionKey,
@@ -68,6 +69,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
         cardSaving() ||
         investmentSaving() ||
         budgetSaving() ||
+        goalSaving() ||
         movementSaving()
       ) {
         <div
@@ -184,7 +186,8 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
             accountFormOpen() ||
             cardFormOpen() ||
             budgetFormOpen() ||
-            investmentFormOpen()
+            investmentFormOpen() ||
+            goalFormOpen()
           "
         >
           @if (active() === "telegram") {
@@ -232,7 +235,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                   active() === "categories" ||
                   active() === "accounts" ||
                   cardSectionActive() ||
-                  active() === "investments"
+                  active() === "investments" || active() === "goals"
                 ) {
                   <button
                     class="reload-instance-icon"
@@ -253,7 +256,9 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                           ? 'Nova conta bancária'
                           : active() === 'investments'
                             ? 'Novo investimento'
-                            : 'Novo cartão'
+                            : active() === 'goals'
+                              ? 'Nova meta financeira'
+                              : 'Novo cartao'
                     "
                     [attr.aria-label]="
                       active() === 'categories'
@@ -262,7 +267,9 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                           ? 'Nova conta bancária'
                           : active() === 'investments'
                             ? 'Novo investimento'
-                            : 'Novo cartão'
+                            : active() === 'goals'
+                              ? 'Nova meta financeira'
+                              : 'Novo cartao'
                     "
                     (click)="
                       active() === 'categories'
@@ -271,7 +278,9 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                           ? openAccountForm()
                           : active() === 'investments'
                             ? openInvestmentForm()
-                            : openCardForm()
+                            : active() === 'goals'
+                              ? openGoalForm()
+                              : openCardForm()
                     "
                   >
                     <span class="material-symbols-outlined">add</span>
@@ -315,17 +324,69 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                     (input)="onQueryInput($event)"
                   />
                 </div>
-                @if (active() !== "categories") {
+                @if (active() !== "statements" && active() !== "transactions") {
                   <button
                     class="filter-btn"
                     title="Filtros"
-                    (click)="toggleCardTypeFilter()"
+                    [class.active]="listFiltersOpen()"
+                    [class.has-filters]="hasListFilters()"
+                    [attr.aria-expanded]="listFiltersOpen()"
+                    aria-label="Filtros da lista"
+                    (click)="toggleListFilters()"
                   >
                     <span class="material-symbols-outlined">tune</span>
                   </button>
                 }
               </div>
-              @if (cardSectionActive() && cardTypeFilterOpen()) {
+              @if (listFiltersOpen()) {
+                <div class="list-filter-panel" role="group" aria-label="Filtros da lista">
+                  <label class="list-filter-field">ORDENAR POR
+                    <select [value]="store.filters().sort" (change)="updateListFilter('sort', $event)">
+                      @for (option of listSortOptions(); track option.value) { <option [value]="option.value">{{ option.label }}</option> }
+                    </select>
+                  </label>
+                  @if (active() === "categories") {
+                    <label class="list-filter-field">TIPO
+                      <select [value]="store.filters().type" (change)="updateListFilter('type', $event)">
+                        <option value="all">Todos</option>
+                        <option value="income">Entrada</option>
+                        <option value="expense">Saída</option>
+                      </select>
+                    </label>
+                  }
+                  @if (cardSectionActive()) {
+                    <label class="list-filter-field">CONTA
+                      <select [value]="store.filters().accountId" (change)="updateListFilter('accountId', $event)">
+                        <option value="all">Todas as contas</option>
+                        @for (account of movementAccounts(); track account.apiId) { <option [value]="account.apiId">{{ account.title }}</option> }
+                      </select>
+                    </label>
+                  }
+                  @if (active() === "goals") {
+                    <label class="list-filter-field">ANDAMENTO
+                      <select [value]="store.filters().goalStatus" (change)="updateListFilter('goalStatus', $event)">
+                        <option value="all">Todas as metas</option>
+                        <option value="inProgress">Em andamento</option>
+                        <option value="complete">Concluídas</option>
+                      </select>
+                    </label>
+                  }
+                  @if (listCategoryOptions().length > 0) {
+                    <label class="list-filter-field">{{ active() === "investments" ? "INVESTIMENTO" : active() === "goals" ? "META" : "CATEGORIA" }}
+                      <select [value]="store.filters().category" (change)="updateListFilter('category', $event)">
+                        <option value="all">Todos</option>
+                        @for (option of listCategoryOptions(); track option) { <option [value]="option">{{ option }}</option> }
+                      </select>
+                    </label>
+                  }
+                  @if (active() === "investments" || active() === "goals" || active() === "budgets") {
+                    <label class="list-filter-field">DATA INICIAL<input type="date" [value]="store.filters().from" (change)="updateListFilter('from', $event)" /></label>
+                    <label class="list-filter-field">DATA FINAL<input type="date" [value]="store.filters().to" (change)="updateListFilter('to', $event)" /></label>
+                  }
+                  <button type="button" class="clear-list-filters" title="Limpar filtros" aria-label="Limpar filtros" [disabled]="!hasListFilters()" (click)="clearListFilters()"><span class="material-symbols-outlined">filter_alt_off</span></button>
+                </div>
+              }
+              @if (cardSectionActive() && listFiltersOpen()) {
                 <div
                   class="card-type-filter"
                   role="group"
@@ -437,7 +498,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                         }
                         {{
                           money(
-                            active() === "investments"
+                            active() === "investments" || active() === "goals"
                               ? record.currentAmount
                               : record.amount
                           )
@@ -532,6 +593,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                       ></span>
                     </div>
                     <div class="category-budget-values">
+                    <button type="button" class="outline-icon" aria-label="Editar orçamento" title="Editar orçamento" (click)="openBudgetForm(budget)"><span class="material-symbols-outlined">edit</span></button>
                       <span
                         >Consumido
                         <strong>{{ money(budget.currentAmount) }}</strong></span
@@ -713,7 +775,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
             @if (active() === "accounts" && accountFormOpen()) {
               <div class="category-form-panel">
                 <div class="category-form-heading">
-                  <div><h2>Nova conta bancária</h2></div>
+                  <div><h2>{{ accountEditingId() ? "Editar conta" : "Nova conta bancária" }}</h2></div>
                   <button
                     type="button"
                     class="category-form-close"
@@ -735,6 +797,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                         maxlength="100"
                         autocomplete="organization"
                     /></label>
+                    @if (!accountEditingId()) {
                     <label
                       >Crédito total *<input
                         appCurrencyInput
@@ -751,6 +814,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                         inputmode="decimal"
                         placeholder="R$ 0,00"
                     /></label>
+                    }
                   </div>
                   @if (
                     accountForm.controls.bankName.touched &&
@@ -787,10 +851,10 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                     <button
                       type="submit"
                       class="primary-btn"
-                      [disabled]="accountForm.invalid || accountSaving()"
+                      [disabled]="accountForm.controls.bankName.invalid || accountSaving()"
                     >
                       <span class="material-symbols-outlined">save</span
-                      >{{ accountSaving() ? "SALVANDO..." : "SALVAR CONTA" }}
+                      >{{ accountSaving() ? "SALVANDO..." : accountEditingId() ? "SALVAR ALTERAÇÕES" : "SALVAR CONTA" }}
                     </button>
                   </div>
                 </form>
@@ -799,7 +863,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
             @if (cardSectionActive() && cardFormOpen()) {
               <div class="category-form-panel">
                 <div class="category-form-heading">
-                  <div><h2>Novo cartão</h2></div>
+                  <div><h2>{{ cardEditingId() ? "Editar cartão" : "Novo cartão" }}</h2></div>
                   <button
                     type="button"
                     class="category-form-close"
@@ -814,7 +878,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                   [formGroup]="cardForm"
                   (ngSubmit)="saveCard()"
                 >
-                  <fieldset class="card-type-fieldset">
+                  @if (!cardEditingId()) { <fieldset class="card-type-fieldset">
                     <legend>Tipo</legend>
                     <div class="card-type-options">
                       <button
@@ -848,7 +912,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                         >Voucher
                       </button>
                     </div>
-                  </fieldset>
+                  </fieldset> }
                   <div class="card-account-readonly">
                     <span class="card-account-readonly-label"
                       >Conta bancária</span
@@ -856,11 +920,11 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                     <div>
                       <span class="card-account-icon material-symbols-outlined"
                         >account_balance</span
-                      ><strong>{{ activeAccountTitle() }}</strong
+                      ><strong>{{ cardFormAccountTitle() }}</strong
                       ><span class="material-symbols-outlined">lock</span>
                     </div>
                   </div>
-                  <fieldset class="card-account-fieldset">
+                  @if (!cardEditingId()) { <fieldset class="card-account-fieldset">
                     <legend>Conta bancária</legend>
                     <div class="card-account-options">
                       @for (
@@ -896,7 +960,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                         >
                       }
                     </div>
-                  </fieldset>
+                  </fieldset> }
                   <div class="category-form-grid card-main-fields">
                     <label
                       >Apelido *<input
@@ -906,7 +970,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                         placeholder="Ex.: Cartão principal"
                     /></label>
                     <label
-                      >Tipo *<select formControlName="type">
+                      >Tipo *<select formControlName="type" [disabled]="!!cardEditingId()">
                         <option value="">Selecione o tipo</option>
                         <option value="CREDITO">Crédito</option>
                         <option value="DEBITO">Débito</option>
@@ -914,7 +978,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                       </select></label
                     >
                     <label
-                      >Conta bancária *<select formControlName="accountId">
+                      >Conta bancária *<select formControlName="accountId" [disabled]="!!cardEditingId()">
                         <option value="">Selecione uma conta</option>
                         @for (
                           account of movementAccounts();
@@ -1115,8 +1179,33 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                       [disabled]="cardForm.invalid || cardSaving()"
                     >
                       <span class="material-symbols-outlined">save</span
-                      >{{ cardSaving() ? "SALVANDO..." : "SALVAR CARTÃO" }}
+                      >{{ cardSaving() ? "SALVANDO..." : cardEditingId() ? "SALVAR ALTERACOES" : "SALVAR CARTAO" }}
                     </button>
+                  </div>
+                </form>
+              </div>
+            }
+            @if (active() === "goals" && goalFormOpen()) {
+              <div class="category-form-panel investment-form-panel">
+                <div class="category-form-heading">
+                  <div><h2>Nova meta financeira</h2></div>
+                  <button type="button" class="category-form-close" aria-label="Fechar formulario" (click)="closeGoalForm()">
+                    <span class="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+                <form class="category-form investment-form" [formGroup]="entryForm" (ngSubmit)="saveGoal()">
+                  <div class="category-form-grid">
+                    <label>Objetivo *<input formControlName="title" maxlength="255" required /></label>
+                    <label>Valor alvo (R$) *<input appCurrencyInput formControlName="amount" type="text" inputmode="decimal" required /></label>
+                    <label>Data prevista *<app-date-picker formControlName="date" ariaLabel="Data prevista para concluir a meta"></app-date-picker></label>
+                  </div>
+                  @if (entryForm.controls.title.touched && entryForm.controls.title.invalid) { <small class="field-error">Informe o objetivo da meta.</small> }
+                  @if (entryForm.controls.amount.touched && entryForm.controls.amount.invalid) { <small class="field-error">Informe um valor alvo maior que zero.</small> }
+                  @if (entryForm.controls.date.touched && entryForm.controls.date.invalid) { <small class="field-error">Informe a data prevista.</small> }
+                  @if (store.error(); as error) { <div class="form-error" role="alert">{{ error }}</div> }
+                  <div class="category-form-actions">
+                    <button type="button" class="secondary-btn" (click)="closeGoalForm()"><span class="material-symbols-outlined">close</span>CANCELAR</button>
+                    <button type="submit" class="primary-btn" [disabled]="entryForm.invalid || goalSaving()"><span class="material-symbols-outlined">save</span>{{ goalSaving() ? "SALVANDO..." : "SALVAR META" }}</button>
                   </div>
                 </form>
               </div>
@@ -1124,7 +1213,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
             @if (active() === "investments" && investmentFormOpen()) {
               <div class="category-form-panel investment-form-panel">
                 <div class="category-form-heading">
-                  <div><h2>Novo investimento</h2></div>
+                  <div><h2>{{ investmentEditingId() ? "Editar investimento" : "Novo investimento" }}</h2></div>
                   <button
                     type="button"
                     class="category-form-close"
@@ -1156,14 +1245,14 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                         inputmode="decimal"
                         placeholder="Ex.: 1,20"
                         required /></label
-                    ><label
+                    >@if (!investmentEditingId()) { <label
                       >Valor inicial<input
                         appCurrencyInput
                         type="text"
                         formControlName="initialAmount"
+                        [readonly]="!!investmentEditingId()"
                         inputmode="decimal"
-                        placeholder="R$ 0,00" /></label
-                    ><label
+                        placeholder="R$ 0,00" /></label> }                    ><label
                       >Valor atual<input
                         appCurrencyInput
                         type="text"
@@ -1173,7 +1262,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                     /></label
                     ><label
                       >Data de início<app-date-picker
-                        formControlName="startDate" ariaLabel="Data de início"></app-date-picker></label>
+                        formControlName="startDate" [disabled]="!!investmentEditingId()" ariaLabel="Data de início"></app-date-picker></label>
                   </div>
                   @if (
                     investmentForm.controls.category.touched &&
@@ -1209,7 +1298,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                       >{{
                         investmentSaving()
                           ? "SALVANDO..."
-                          : "SALVAR INVESTIMENTO"
+                          : investmentEditingId() ? "SALVAR ALTERACOES" : "SALVAR INVESTIMENTO"
                       }}
                     </button>
                   </div>
@@ -1249,6 +1338,8 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                     <div class="statement-detail-heading">
                       <div class="statement-row-icon" [class.income]="detail.type === 'income'"><span class="material-symbols-outlined">{{ detail.type === 'income' ? 'arrow_upward' : 'arrow_downward' }}</span></div>
                       <div><h3>{{ detail.title }}</h3></div>
+                      @if (detail.apiId) { <button type="button" class="statement-detail-edit" aria-label="Editar descricao" title="Editar descricao" (click)="openModal(detail)"><span class="material-symbols-outlined">edit</span></button> }
+                      @if (detail.apiId) { <button type="button" class="secondary-btn" (click)="toggleMovementRecurrence(detail)">{{ detail.recurring ? "CANCELAR RECORRÊNCIA" : "ATIVAR RECORRÊNCIA" }}</button> }
                       <button type="button" class="statement-detail-close" aria-label="Fechar detalhes do registro" title="Fechar" (click)="closeMovementDetail()"><span class="material-symbols-outlined">close</span></button>
                     </div>
                     <div class="statement-detail-metrics">
@@ -1431,6 +1522,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                   <app-finance-record-detail
                     [section]="active()"
                     [record]="record"
+                    (editRecord)="openModal($event)"
                     [loading]="
                       resourceLoadingVisible() && loadingTarget() === 'detail'
                     "
@@ -1551,7 +1643,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                       @if (budgetFormOpen()) {
                         <div class="category-form-panel budget-form-panel">
                           <div class="category-form-heading">
-                            <div><h2>Novo orçamento</h2></div>
+                            <div><h2>{{ budgetEditingId() ? "Editar orçamento" : "Novo orçamento" }}</h2></div>
                             <button
                               type="button"
                               class="category-form-close"
@@ -1605,7 +1697,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                                 >{{
                                   budgetSaving()
                                     ? "SALVANDO..."
-                                    : "SALVAR ORÇAMENTO"
+                                    : budgetEditingId() ? "SALVAR ALTERACOES" : "SALVAR ORCAMENTO"
                                 }}
                               </button>
                             </div>
@@ -1634,6 +1726,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                             ></span>
                           </div>
                           <div class="category-budget-values">
+                    <button type="button" class="outline-icon" aria-label="Editar orçamento" title="Editar orçamento" (click)="openBudgetForm(budget)"><span class="material-symbols-outlined">edit</span></button>
                             <span
                               >Consumido
                               <strong>{{
@@ -1736,13 +1829,13 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                       (click)="clearSelection()"
                     >
                       ×</button
-                    ><button
+                    >@if (active() !== "budgets" && active() !== "transactions" && active() !== "invoices") { <button
+                      type="button"
                       class="outline-icon"
                       aria-label="Editar registro"
+                      title="Editar registro"
                       (click)="openModal(record)"
-                    >
-                      ✎</button
-                    ><button
+                    ><span class="material-symbols-outlined">edit</span></button> }                    ><button
                       class="outline-icon"
                       aria-label="Excluir registro"
                       (click)="deleteRecord()"
@@ -2554,50 +2647,30 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
             <h2>
               {{
                 editingId()
-                  ? "Editar registro"
-                  : "Novo " + activeSection().singular
+                  ? (active() === "goals" ? "Editar meta financeira" : "Editar registro")
+                  : (active() === "goals" ? "Nova meta financeira" : "Novo " + activeSection().singular)
               }}
             </h2>
             <button class="close-modal" (click)="closeModal()">×</button>
           </div>
           <form [formGroup]="entryForm" (ngSubmit)="save()">
-            <label
-              >Descrição *<input
-                formControlName="title"
-                maxlength="80"
-                required
-            /></label>
-            <div class="form-row">
-              <label>
-                Valor (R$) *<input
-                  appCurrencyInput
-                  formControlName="amount"
-                  type="text"
-                  inputmode="decimal"
-                  required /></label
-              >
-            </div>
-            <label
-              >Categoria *<input formControlName="category" required /></label
-            ><label
-              >Observações<textarea formControlName="notes" rows="3"></textarea>
-            </label>
-            <label
-              >Data *<app-date-picker formControlName="date" ariaLabel="Data do lançamento"></app-date-picker></label>
+            <label>{{ active() === "goals" ? "Objetivo *" : "Descricao *" }}<input formControlName="title" maxlength="255" required /></label>
+            @if (active() !== "statements" || !editingId()) {
+              <div class="form-row">
+                <label>{{ active() === "goals" ? "Valor alvo (R$) *" : "Valor (R$) *" }}<input appCurrencyInput formControlName="amount" type="text" inputmode="decimal" required /></label>
+              </div>
+              @if (active() !== "goals") {
+                <label>Categoria *<input formControlName="category" required /></label>
+                <label>Observações<textarea formControlName="notes" rows="3"></textarea></label>
+              }
+              <label>{{ active() === "goals" ? "Data prevista *" : "Data *" }}<app-date-picker formControlName="date" [ariaLabel]="active() === 'goals' ? 'Data prevista para concluir a meta' : 'Data do lancamento'"></app-date-picker></label>
+            } @else {
+              <small>A API permite alterar somente a descrição da movimentação.</small>
+            }
+            @if (store.error(); as error) { <div class="form-error" role="alert">{{ error }}</div> }
             <div class="modal-actions">
-              <button
-                type="button"
-                class="secondary-btn"
-                (click)="closeModal()"
-              >
-                CANCELAR</button
-              ><button
-                class="primary-btn"
-                type="submit"
-                [disabled]="entryForm.invalid"
-              >
-                SALVAR REGISTRO →
-              </button>
+              <button type="button" class="secondary-btn" (click)="closeModal()">CANCELAR</button>
+              <button class="primary-btn" type="submit" [disabled]="entryForm.invalid || store.loading()">SALVAR</button>
             </div>
           </form>
         </div>
@@ -2652,7 +2725,7 @@ export class FinanceShellComponent {
   readonly selectedCardTypes = signal<Set<string>>(
     new Set(this.cardTypes.map((type) => type.value)),
   );
-  readonly cardTypeFilterOpen = signal(true);
+  readonly listFiltersOpen = signal(false);
   readonly filteredRecords = computed(() => {
     const records = this.store.filteredRecords();
     if (!this.cardSectionActive()) return records;
@@ -2864,10 +2937,15 @@ export class FinanceShellComponent {
   readonly categoryEditingId = signal<string | null>(null);
   readonly accountFormOpen = signal(false);
   readonly accountSaving = signal(false);
+  readonly accountEditingId = signal<string | null>(null);
   readonly cardFormOpen = signal(false);
   readonly cardSaving = signal(false);
+  readonly cardEditingId = signal<string | null>(null);
   readonly investmentFormOpen = signal(false);
   readonly investmentSaving = signal(false);
+  readonly investmentEditingId = signal<string | null>(null);
+  readonly goalFormOpen = signal(false);
+  readonly goalSaving = signal(false);
   readonly cardDays = Array.from({ length: 31 }, (_, index) => index + 1);
   readonly invoiceMonth = signal(this.nextMonth);
   readonly invoicePeriodRange = signal<{ dataInicial: string; dataFinal: string } | null>(null);
@@ -2897,6 +2975,7 @@ export class FinanceShellComponent {
   );
   readonly budgetFormOpen = signal(false);
   readonly budgetSaving = signal(false);
+  readonly budgetEditingId = signal<string | null>(null);
   readonly movementAsideOpen = signal(false);
   readonly movementSaving = signal(false);
   readonly categoryPickerOpen = signal(false);
@@ -3233,6 +3312,7 @@ export class FinanceShellComponent {
     if (this.cardFormOpen() && !this.cardSaving()) this.closeCardForm();
     if (this.investmentFormOpen() && !this.investmentSaving())
       this.closeInvestmentForm();
+    if (this.goalFormOpen() && !this.goalSaving()) this.closeGoalForm();
     this.store.navigate(item.key);
     this.loadingTarget.set("list");
     this.store.loadSection(item.key);
@@ -3302,6 +3382,7 @@ export class FinanceShellComponent {
     if (this.categoryFormOpen()) this.closeCategoryForm();
     if (this.accountFormOpen()) this.closeAccountForm();
     if (this.cardFormOpen()) this.closeCardForm();
+    if (this.goalFormOpen()) this.closeGoalForm();
     if (this.active() === "cards") {
       const card = this.store.sections().cards.records.find((record) => record.id === id);
       const cardSection = card?.cardType === "CREDITO"
@@ -3487,8 +3568,40 @@ export class FinanceShellComponent {
       dataFinal: period.to,
     });
   }
-  toggleCardTypeFilter(): void {
-    this.cardTypeFilterOpen.update((open) => !open);
+  toggleListFilters(): void {
+    this.listFiltersOpen.update((open) => !open);
+  }
+  updateListFilter(key: "sort" | "type" | "from" | "to" | "accountId" | "goalStatus" | "category", event: Event): void {
+    const value = (event.target as HTMLInputElement | HTMLSelectElement).value;
+    const current = this.store.filters();
+    if (key === "sort") this.store.setFilters({ ...current, sort: value as Filters["sort"] });
+    else if (key === "type") this.store.setFilters({ ...current, type: value as Filters["type"] });
+    else if (key === "goalStatus") this.store.setFilters({ ...current, goalStatus: value as Filters["goalStatus"] });
+    else this.store.setFilters({ ...current, [key]: value });
+  }
+  listSortOptions(): Array<{ value: Filters["sort"]; label: string }> {
+    const standard = { value: "recent" as const, label: "Padrão" };
+    switch (this.active()) {
+      case "accounts": return [standard, { value: "az", label: "Banco A-Z" }, { value: "higher", label: "Maior saldo" }, { value: "lower", label: "Menor saldo" }, { value: "creditHigh", label: "Mais crédito disponível" }, { value: "creditLow", label: "Menos crédito disponível" }];
+      case "cards": case "cardCredit": case "cardDebit": case "cardVoucher": return [standard, { value: "az", label: "Apelido A-Z" }, { value: "higher", label: "Maior limite ou saldo" }, { value: "lower", label: "Menor limite ou saldo" }];
+      case "categories": return [{ value: "az", label: "Nome A-Z" }, { value: "recent", label: "Padrão" }];
+      case "investments": return [standard, { value: "az", label: "Categoria A-Z" }, { value: "higher", label: "Maior valor atual" }, { value: "lower", label: "Menor valor atual" }, { value: "rateHigh", label: "Maior taxa mensal" }, { value: "rateLow", label: "Menor taxa mensal" }, { value: "oldest", label: "Início mais antigo" }];
+      case "goals": return [standard, { value: "dueSoon", label: "Conclusão mais próxima" }, { value: "dueLate", label: "Conclusão mais distante" }, { value: "higher", label: "Maior valor alvo" }, { value: "lower", label: "Menor valor alvo" }, { value: "progressHigh", label: "Maior progresso" }, { value: "progressLow", label: "Menor progresso" }, { value: "az", label: "Objetivo A-Z" }];
+      case "budgets": return [standard, { value: "oldest", label: "Mês mais antigo" }, { value: "higher", label: "Maior limite" }, { value: "lower", label: "Menor limite" }, { value: "usageHigh", label: "Maior utilização" }, { value: "usageLow", label: "Menor utilização" }, { value: "az", label: "Categoria A-Z" }];
+      default: return [standard, { value: "oldest", label: "Mais antigos" }, { value: "higher", label: "Maior valor" }, { value: "lower", label: "Menor valor" }, { value: "az", label: "Nome A-Z" }];
+    }
+  }
+  listCategoryOptions(): string[] {
+    if (!["investments", "goals", "budgets"].includes(this.active())) return [];
+    return [...new Set(this.store.sections()[this.active()].records.map((record) => record.title).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }
+  hasListFilters(): boolean {
+    const filters = this.store.filters();
+    return filters.type !== "all" || filters.category !== "all" || filters.accountId !== "all" || filters.goalStatus !== "all" || !!filters.from || !!filters.to || filters.sort !== "recent" || (this.cardSectionActive() && this.selectedCardTypes().size !== this.cardTypes.length);
+  }
+  clearListFilters(): void {
+    this.store.setFilters({ type: "all", category: "all", accountId: "all", goalStatus: "all", from: "", to: "", sort: "recent" });
+    this.selectedCardTypes.set(new Set(this.cardTypes.map((type) => type.value)));
   }
   toggleCardType(type: string): void {
     const selected = new Set(this.selectedCardTypes());
@@ -3692,21 +3805,70 @@ export class FinanceShellComponent {
       this.store.loadBudgets(record.apiId);
     }
   }
-  sortLabel(): string {
-    return {
-      recent: "MAIS RECENTES",
-      oldest: "MAIS ANTIGOS",
-      higher: "MAIOR VALOR",
-      lower: "MENOR VALOR",
-      az: "NOME A–Z",
-    }[this.store.filters().sort];
+  openGoalForm(): void {
+    this.closeModal();
+    this.store.clearError();
+    this.store.selectRecord(null);
+    this.store.startEditing(null);
+    this.entryForm.controls.amount.setValidators([Validators.required, Validators.min(0.01)]);
+    this.entryForm.controls.category.clearValidators();
+    this.entryForm.controls.amount.updateValueAndValidity();
+    this.entryForm.controls.category.updateValueAndValidity();
+    this.entryForm.reset({ title: "", amount: null, date: null, category: "", notes: "" });
+    this.goalFormOpen.set(true);
+  }
+  closeGoalForm(): void {
+    if (this.goalSaving()) return;
+    this.goalFormOpen.set(false);
+    this.store.startEditing(null);
+    this.entryForm.controls.amount.setValidators([Validators.required, Validators.min(0)]);
+    this.entryForm.controls.date.setValidators(Validators.required);
+    this.entryForm.controls.category.setValidators(Validators.required);
+    this.entryForm.reset({ title: "", amount: null, date: null, category: "", notes: "" });
+    this.entryForm.updateValueAndValidity();
+  }
+  saveGoal(): void {
+    if (this.entryForm.invalid || this.goalSaving()) {
+      this.entryForm.markAllAsTouched();
+      return;
+    }
+    const value = this.entryForm.getRawValue();
+    if (value.amount === null || value.date === null) return;
+    this.goalSaving.set(true);
+    this.store.saveRecord({
+      title: value.title.trim(),
+      category: "Meta financeira",
+      amount: value.amount,
+      date: value.date,
+      notes: "",
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((saved) => {
+      this.goalSaving.set(false);
+      if (saved) this.closeGoalForm();
+    });
   }
   openModal(record?: FinanceRecord): void {
     if (this.active() === "categories" && !record) {
       this.openCategoryForm();
       return;
     }
+    if (record && this.active() === "accounts") { this.openAccountEdit(record); return; }
+    if (record && ["cards", "cardCredit", "cardDebit", "cardVoucher"].includes(this.active())) { this.openCardEdit(record); return; }
+    if (record && this.active() === "investments") { this.openInvestmentEdit(record); return; }
     this.store.startEditing(record?.id ?? null);
+    if (this.active() === "goals") {
+      this.entryForm.controls.amount.setValidators([Validators.required, Validators.min(0.01)]);
+      this.entryForm.controls.category.clearValidators();
+      this.entryForm.controls.amount.updateValueAndValidity();
+      this.entryForm.controls.category.updateValueAndValidity();
+    }
+    if (this.active() === "statements" && record) {
+      this.entryForm.controls.amount.clearValidators();
+      this.entryForm.controls.date.clearValidators();
+      this.entryForm.controls.category.clearValidators();
+      this.entryForm.controls.amount.updateValueAndValidity();
+      this.entryForm.controls.date.updateValueAndValidity();
+      this.entryForm.controls.category.updateValueAndValidity();
+    }
     this.modalVisible.set(true);
     this.entryForm.reset({
       title: record?.title ?? "",
@@ -3719,20 +3881,35 @@ export class FinanceShellComponent {
   closeModal(): void {
     this.modalVisible.set(false);
     this.store.startEditing(null);
+    this.entryForm.controls.amount.setValidators([Validators.required, Validators.min(0)]);
+    this.entryForm.controls.date.setValidators(Validators.required);
+    this.entryForm.controls.category.setValidators(Validators.required);
+    this.entryForm.updateValueAndValidity();
   }
   save(): void {
     if (this.entryForm.invalid) return;
     const value = this.entryForm.getRawValue();
-    if (value.amount === null || value.date === null) return;
+    if (this.active() !== "statements" && (value.amount === null || value.date === null)) return;
     this.store.saveRecord({
       ...value,
-      amount: value.amount,
-      date: value.date,
+      amount: value.amount ?? undefined,
+      date: value.date ?? undefined,
       title: value.title.trim(),
       category: value.category.trim(),
       notes: value.notes.trim(),
+    }).subscribe((saved) => {
+      if (saved) {
+        if (this.active() === "statements" && this.editingId()) this.statementDetail.update((current) => current && current.id === this.editingId() ? { ...current, title: value.title.trim(), notes: value.title.trim() } : current);
+        this.closeModal();
+      }
     });
-    this.closeModal();
+  }
+  toggleMovementRecurrence(record: FinanceRecord): void {
+    if (!record.apiId) return;
+    const active = !record.recurring;
+    this.store.updateMovementRecurrence(record.apiId, { ativa: active }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((saved) => {
+      if (saved) this.statementDetail.update((current) => current && current.apiId === record.apiId ? { ...current, recurring: active, nextRecurrence: active ? current.nextRecurrence : undefined } : current);
+    });
   }
   openMovementAside(): void {
     const accountId = this.activeAccountId();
@@ -3978,12 +4155,21 @@ export class FinanceShellComponent {
     this.openCategoryForm();
   }
   openAccountForm(): void {
+    this.accountEditingId.set(null);
     this.store.selectRecord(null);
     this.store.clearError();
     this.accountFormOpen.set(true);
     this.accountForm.reset({ bankName: "", creditTotal: 0, currentBalance: 0 });
   }
+  openAccountEdit(record: FinanceRecord): void {
+    if (!record.apiId) return;
+    this.store.clearError();
+    this.accountEditingId.set(record.apiId);
+    this.accountFormOpen.set(true);
+    this.accountForm.reset({ bankName: record.title, creditTotal: 0, currentBalance: 0 });
+  }
   openCardForm(): void {
+    this.cardEditingId.set(null);
     this.store.loadSection("accounts");
     this.store.selectRecord(null);
     this.store.clearError();
@@ -4008,9 +4194,30 @@ export class FinanceShellComponent {
       rechargeDay: null,
     });
   }
+  openCardEdit(record: FinanceRecord): void {
+    if (!record.apiId || !record.accountId || !["CREDITO", "DEBITO", "VOUCHER"].includes(record.cardType ?? "")) return;
+    this.store.clearError();
+    this.cardEditingId.set(record.apiId);
+    this.cardFormOpen.set(true);
+    this.cardForm.reset({
+      nickname: record.title,
+      type: record.cardType!,
+      accountId: record.accountId,
+      creditLimit: record.creditLimit === undefined ? "" : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(record.creditLimit),
+      closingDay: record.closingDay ?? null,
+      dueDay: record.dueDay ?? null,
+      voucherType: record.voucherType ?? "VA_VR",
+      rechargeAmount: record.rechargeAmount === undefined ? "" : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(record.rechargeAmount),
+      rechargeDay: record.rechargeDay ?? null,
+    });
+  }
   selectCardType(type: "CREDITO" | "DEBITO" | "VOUCHER"): void {
     this.cardForm.controls.type.setValue(type);
     this.cardForm.controls.type.markAsTouched();
+  }
+  cardFormAccountTitle(): string {
+    const id = this.cardForm.controls.accountId.value;
+    return this.movementAccounts().find((account) => account.apiId === id)?.title ?? this.activeAccountTitle();
   }
   selectCardAccount(accountId: string | undefined): void {
     if (accountId) {
@@ -4074,6 +4281,7 @@ export class FinanceShellComponent {
   closeCardForm(): void {
     if (!this.cardSaving()) {
       this.cardFormOpen.set(false);
+      this.cardEditingId.set(null);
       this.cardForm.reset({
         nickname: "",
         type: "",
@@ -4138,30 +4346,32 @@ export class FinanceShellComponent {
         valorRecarga: rechargeAmount!,
         diaRecarga: value.rechargeDay!,
       };
+    const editingId = this.cardEditingId();
     const previousIds = new Set(
       this.store.sections().cards.records.map((record) => record.id),
     );
     this.cardSaving.set(true);
-    this.store.createCard(request).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (created) => {
+    (editingId ? this.store.updateCard(editingId, request) : this.store.createCard(request)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (saved) => {
         this.cardSaving.set(false);
-        if (created) {
-          const newId = this.newRecordId("cards", previousIds);
-          this.closeCardForm();
-          this.triggerCreatedRecordPop(newId);
+        if (saved) {
+          if (!editingId) { const newId = this.newRecordId("cards", previousIds); this.closeCardForm(); this.triggerCreatedRecordPop(newId); }
+          else { this.closeCardForm(); }
         }
       },
       error: () => this.cardSaving.set(false),
     });
   }
-  openBudgetForm(): void {
+  openBudgetForm(record?: FinanceRecord): void {
     if (!this.selectedRecord()?.apiId) return;
     this.store.clearError();
+    this.budgetEditingId.set(record?.apiId ?? null);
     this.setCategoryTab("budgets");
     this.budgetFormOpen.set(true);
-    this.budgetForm.reset({ limit: null });
+    this.budgetForm.reset({ limit: record?.amount ?? null });
   }
   openInvestmentForm(): void {
+    this.investmentEditingId.set(null);
     this.store.selectRecord(null);
     this.store.clearError();
     this.investmentFormOpen.set(true);
@@ -4173,9 +4383,17 @@ export class FinanceShellComponent {
       interestRate: null,
     });
   }
+  openInvestmentEdit(record: FinanceRecord): void {
+    if (!record.apiId) return;
+    this.store.clearError();
+    this.investmentEditingId.set(record.apiId);
+    this.investmentFormOpen.set(true);
+    this.investmentForm.reset({ category: record.title, startDate: record.date || this.currentDate, initialAmount: record.initialAmount ?? null, currentAmount: record.currentAmount ?? record.amount ?? null, interestRate: record.interestRate ?? null });
+  }
   closeInvestmentForm(): void {
     if (!this.investmentSaving()) {
       this.investmentFormOpen.set(false);
+      this.investmentEditingId.set(null);
       this.investmentForm.reset({
         category: "",
         startDate: this.currentDate,
@@ -4191,28 +4409,24 @@ export class FinanceShellComponent {
       return;
     }
     const value = this.investmentForm.getRawValue();
+    const editingId = this.investmentEditingId();
     const request: InvestmentRequest = {
       categoria: value.category.trim(),
       jurosAoMes: value.interestRate!,
-      ...(value.startDate ? { dataInicio: value.startDate } : {}),
-      ...(value.initialAmount !== null
-        ? { valorInicial: value.initialAmount }
-        : {}),
-      ...(value.currentAmount !== null
-        ? { valorCorrente: value.currentAmount }
-        : {}),
+      ...(!editingId && value.startDate ? { dataInicio: value.startDate } : {}),
+      ...(!editingId && value.initialAmount !== null ? { valorInicial: value.initialAmount } : {}),
+      ...(value.currentAmount !== null ? { valorCorrente: value.currentAmount } : {}),
     };
     const previousIds = new Set(
       this.store.sections().investments.records.map((record) => record.id),
     );
     this.investmentSaving.set(true);
-    this.store.createInvestment(request).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (created) => {
+    (editingId ? this.store.updateInvestment(editingId, request) : this.store.createInvestment(request)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (saved) => {
         this.investmentSaving.set(false);
-        if (created) {
-          const newId = this.newRecordId("investments", previousIds);
-          this.closeInvestmentForm();
-          this.triggerCreatedRecordPop(newId);
+        if (saved) {
+          if (!editingId) { const newId = this.newRecordId("investments", previousIds); this.closeInvestmentForm(); this.triggerCreatedRecordPop(newId); }
+          else this.closeInvestmentForm();
         }
       },
       error: () => this.investmentSaving.set(false),
@@ -4221,6 +4435,7 @@ export class FinanceShellComponent {
   closeBudgetForm(): void {
     if (!this.budgetSaving()) {
       this.budgetFormOpen.set(false);
+      this.budgetEditingId.set(null);
       this.budgetForm.reset({ limit: null });
     }
   }
@@ -4234,7 +4449,8 @@ export class FinanceShellComponent {
     if (value.limit === null) return;
     this.budgetSaving.set(true);
     const request: BudgetRequest = { valorLimite: value.limit };
-    this.store.createBudget(categoryId, request).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    const editingId = this.budgetEditingId();
+    (editingId ? this.store.updateBudget(categoryId, editingId, request) : this.store.createBudget(categoryId, request)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (created) => {
         this.budgetSaving.set(false);
         if (created) this.closeBudgetForm();
@@ -4245,6 +4461,7 @@ export class FinanceShellComponent {
   closeAccountForm(): void {
     if (!this.accountSaving()) {
       this.accountFormOpen.set(false);
+      this.accountEditingId.set(null);
       this.accountForm.reset({
         bankName: "",
         creditTotal: 0,
@@ -4258,24 +4475,19 @@ export class FinanceShellComponent {
       return;
     }
     const value = this.accountForm.getRawValue();
-    const previousIds = new Set(
-      this.store.sections().accounts.records.map((record) => record.id),
-    );
+    const editingId = this.accountEditingId();
+    const previousIds = new Set(this.store.sections().accounts.records.map((record) => record.id));
     this.accountSaving.set(true);
-    this.store
-      .createAccount({
-        nomeDoBanco: value.bankName.trim(),
-        creditoTotal: value.creditTotal,
-        saldoCorrente: value.currentBalance,
-      })
+    (editingId
+      ? this.store.updateAccount(editingId, { nomeDoBanco: value.bankName.trim() })
+      : this.store.createAccount({ nomeDoBanco: value.bankName.trim(), creditoTotal: value.creditTotal, saldoCorrente: value.currentBalance }))
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (created) => {
           this.accountSaving.set(false);
           if (created) {
-            const newId = this.newRecordId("accounts", previousIds);
-            this.closeAccountForm();
-            this.triggerCreatedRecordPop(newId);
+            if (!editingId) { const newId = this.newRecordId("accounts", previousIds); this.closeAccountForm(); this.triggerCreatedRecordPop(newId); }
+            else this.closeAccountForm();
           }
         },
         error: () => this.accountSaving.set(false),
