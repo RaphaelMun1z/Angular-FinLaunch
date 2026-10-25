@@ -7,10 +7,11 @@ import {
   DashboardResponse, HistoricalPeriodsResponse, InvestmentResponse, InvoiceResponse, LoginRequest, LoginResponse, MovementRequest, MovementResponse, MovementUpdateRequest, RecurrenceRequest, RegisterRequest,
   PeriodRequest, UserDetailsResponse,
 } from "./api.models";
+import { environment } from "../../../environments/environment";
 
 // Em desenvolvimento, o Angular CLI encaminha /api para localhost:8080.
 // Em produção, a API deve ser publicada sob o mesmo domínio ou substituída por configuração de ambiente.
-export const API_BASE_URL = "/api";
+export const API_BASE_URL = environment.apiUrl;
 
 @Injectable({ providedIn: "root" })
 export class FinanceApiService {

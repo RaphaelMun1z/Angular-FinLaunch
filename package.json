@@ -3,8 +3,10 @@
 	"version": "1.0.0",
 	"private": true,
 	"scripts": {
-		"start": "ng serve",
-		"build": "ng build"
+		"start": "node scripts/generate-environments.mjs && ng serve",
+		"start:dev": "node scripts/generate-environments.mjs && ng serve --configuration development",
+		"start:prod": "node scripts/generate-environments.mjs && ng serve --configuration production",
+		"build": "node scripts/generate-environments.mjs && ng build"
 	},
 	"dependencies": {
 		"@angular/common": "^22.2.1",
