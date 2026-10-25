@@ -64,7 +64,7 @@ export const initialState: FinanceState = {
   active: "overview",
   selectedId: null,
   query: "",
-  filters: { type: "all", category: "all", from: "", to: "", sort: "recent" },
+  filters: { type: "all", category: "all", accountId: "all", goalStatus: "all", from: "", to: "", sort: "recent" },
   accountTab: "overview",
   cardTab: "overview",
   categoryTab: "overview",

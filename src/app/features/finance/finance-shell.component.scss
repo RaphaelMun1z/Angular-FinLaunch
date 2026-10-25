@@ -2,6 +2,16 @@
 .statement-search-card { border-color:#3a3c46; background:#22242b; color:#f0f1f4; }
 .statement-search-card:hover { border-color:#ed3114; background:#292b33; box-shadow:0 8px 18px rgb(0 0 0 / 18%); }
 .statement-search-icon { background:#45251f; color:#ff8b73; }
+.list-filter-panel { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: 12px 0 0; padding: 12px; border: 1px solid #353640; border-radius: 10px; background: #1d1e24; }
+.list-filter-field { display: flex; flex: 1 1 145px; flex-direction: column; gap: 6px; color: #8f93a1; font: 800 9px Inter, sans-serif; letter-spacing: .08em; }
+.list-filter-field select, .list-filter-field input { width: 100%; min-height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #454650; border-radius: 7px; background: #24262e; color: #f0f1f4; font: 600 11px Inter, sans-serif; color-scheme: dark; }
+.list-filter-field select:focus, .list-filter-field input:focus { border-color: #ed3114; outline: 2px solid rgb(237 49 20 / 18%); }
+.clear-list-filters { min-height: 36px; padding: 0 11px; border: 1px solid #454650; border-radius: 7px; background: #24262e; color: #c9cbd2; font: 800 9px Inter, sans-serif; letter-spacing: .04em; cursor: pointer; }
+.list-tools .filter-btn.active { border-color: #ed3114; background: #3b2323; color: #ff6745; box-shadow: 0 0 0 2px rgb(237 49 20 / 12%); }
+.clear-list-filters { display: inline-grid; place-items: center; width: 36px; min-width: 36px; padding: 0; }
+.clear-list-filters .material-symbols-outlined { font-size: 18px; }
+.clear-list-filters:hover:not(:disabled) { border-color: #ed3114; color: #fff; }
+.clear-list-filters:disabled { opacity: .45; cursor: default; }
 .category-form-panel { position: relative; display: flex; flex-direction: column; height: 100%; min-height: 100%; padding-bottom: 110px; overflow-y: auto; }
 .content.telegram-layout { display: block; overflow: auto; }
 .content.telegram-layout > .list-panel,
@@ -262,3 +272,6 @@
 @media (max-width: 700px) { .card-specific-fields { grid-template-columns: 1fr; } .card-day-options { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
 .dashboard .dashboard-metrics,
 .dashboard > .dash-section:nth-of-type(5) { display: none; }
+
+.statement-detail-edit { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; padding: 0; border: 1px solid #454650; border-radius: 9px; background: #292b33; color: #c9cbd2; cursor: pointer; }
+.statement-detail-edit:hover { border-color: #ed3114; color: #ff6745; }

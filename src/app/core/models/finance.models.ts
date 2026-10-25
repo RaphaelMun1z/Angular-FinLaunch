@@ -54,6 +54,7 @@ export interface FinanceRecord {
   balance?: number;
   accountId?: string;
   cardType?: string;
+  voucherType?: "VA_VR" | "CREDITO_VOUNCHER";
   closingDay?: number;
   dueDay?: number;
   rechargeDay?: number;
@@ -95,9 +96,11 @@ export interface NavItem {
 export interface Filters {
   type: "all" | RecordType;
   category: string;
+  accountId: string;
+  goalStatus: "all" | "inProgress" | "complete";
   from: string;
   to: string;
-  sort: "recent" | "oldest" | "higher" | "lower" | "az";
+  sort: "recent" | "oldest" | "higher" | "lower" | "az" | "creditHigh" | "creditLow" | "rateHigh" | "rateLow" | "dueSoon" | "dueLate" | "progressHigh" | "progressLow" | "usageHigh" | "usageLow";
 }
 
 export interface FinanceState {

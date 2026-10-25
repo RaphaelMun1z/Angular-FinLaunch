@@ -12,7 +12,7 @@ import { AccountTab, CardTab, FinanceRecord, SectionKey } from "../../core/model
     <div class="domain-detail card-detail" [class.resource-detail-loading]="loading" [class.resource-detail-revealed]="reveal" [class.account-detail]="section === 'accounts'" [class.entries-active]="section === 'accounts' && accountTab === 'entries'" [class.invoices-active]="record.cardType === 'CREDITO' && cardTab === 'invoices'" [class.card-credit-detail]="record.cardType === 'CREDITO'" [class.card-debit-detail]="record.cardType === 'DEBITO'" [class.card-voucher-detail]="record.cardType === 'VOUCHER'">
       @if (loading) { <div class="resource-loading detail-resource-loading" [class.resource-loading-active]="loadingActive" role="status" aria-live="polite"><span class="material-symbols-outlined">rocket_launch</span></div> }
       @if (section === 'accounts') {
-        <div class="domain-header"><span class="domain-icon material-symbols-outlined">account_balance</span><div><span class="domain-kicker">CONTA BANCÁRIA</span><h2>{{ record.title }}</h2></div></div>
+        <div class="domain-header"><span class="domain-icon material-symbols-outlined">account_balance</span><div><span class="domain-kicker">CONTA BANCÁRIA</span><h2>{{ record.title }}</h2></div><button type="button" class="domain-edit-button" aria-label="Editar conta" title="Editar conta" (click)="editRecord.emit(record)"><span class="material-symbols-outlined">edit</span></button></div>
         <div class="domain-tabs" role="tablist"><button [class.active]="accountTab === 'overview'" (click)="accountTabChange.emit('overview')">Visão geral</button><button [class.active]="accountTab === 'movements'" (click)="accountTabChange.emit('movements')">Movimentações</button><button [class.active]="accountTab === 'entries'" (click)="accountTabChange.emit('entries')">Lançamentos</button></div>
         @if (accountTab === 'overview') {
           <section class="domain-section"><div class="domain-section-heading"><span class="material-symbols-outlined">account_balance_wallet</span><strong>Resumo da conta</strong></div><div class="domain-metrics"><div><span>SALDO</span><strong>{{ money(record.balance) }}</strong></div><div><span>CRÉDITO TOTAL</span><strong>{{ money(record.creditTotal) }}</strong></div><div><span>CRÉDITO DISPONÍVEL</span><strong>{{ money(record.creditRemaining) }}</strong></div></div></section>
@@ -39,7 +39,7 @@ import { AccountTab, CardTab, FinanceRecord, SectionKey } from "../../core/model
           </section>
         }
       } @else if (section === 'cards' || section === 'cardCredit' || section === 'cardDebit' || section === 'cardVoucher') {
-        <div class="domain-header"><span class="domain-icon material-symbols-outlined">credit_card</span><div><span class="domain-kicker">{{ cardType(record.cardType) }}</span><h2>{{ record.title }}</h2></div></div>
+        <div class="domain-header"><span class="domain-icon material-symbols-outlined">credit_card</span><div><span class="domain-kicker">{{ cardType(record.cardType) }}</span><h2>{{ record.title }}</h2></div><button type="button" class="domain-edit-button" aria-label="Editar cartao" title="Editar cartao" (click)="editRecord.emit(record)"><span class="material-symbols-outlined">edit</span></button></div>
         @if ((cardTab === 'overview' || record.cardType !== 'CREDITO') && record.cardType !== 'DEBITO') { <div class="card-detail-section-heading"><span class="material-symbols-outlined">{{ record.cardType === 'VOUCHER' ? 'payments' : 'credit_card' }}</span><strong>{{ record.cardType === 'VOUCHER' ? 'Recarga' : 'Resumo do cartão' }}</strong></div> }
         @if (record.cardType === 'CREDITO') { <div class="domain-tabs" role="tablist"><button [class.active]="cardTab === 'overview'" (click)="cardTabChange.emit('overview')">Visão geral</button><button [class.active]="cardTab === 'invoices'" (click)="cardTabChange.emit('invoices')">Faturas</button></div> }
         @if (record.cardType !== 'DEBITO') {
@@ -84,12 +84,12 @@ import { AccountTab, CardTab, FinanceRecord, SectionKey } from "../../core/model
           </section>
         }
        } @else if (section === 'investments') {
-        <div class="domain-header"><span class="domain-icon material-symbols-outlined">monitoring</span><div><span class="domain-kicker">INVESTIMENTO</span><h2>{{ record.title }}</h2></div></div>
+        <div class="domain-header"><span class="domain-icon material-symbols-outlined">monitoring</span><div><span class="domain-kicker">INVESTIMENTO</span><h2>{{ record.title }}</h2></div><button type="button" class="domain-edit-button" aria-label="Editar investimento" title="Editar investimento" (click)="editRecord.emit(record)"><span class="material-symbols-outlined">edit</span></button></div>
         <div class="card-detail-section-heading"><span class="material-symbols-outlined">monitoring</span><strong>Resumo do investimento</strong></div>
         <div class="domain-metrics"><div><span>VALOR INICIAL</span><strong>{{ money(record.initialAmount) }}</strong></div><div><span>VALOR CORRENTE</span><strong>{{ money(record.currentAmount) }}</strong></div><div><span>VARIAÇÃO</span><strong>{{ money(difference(record.currentAmount, record.initialAmount)) }}</strong></div></div>
         <div class="domain-fields"><div><span>INÍCIO</span><strong>{{ date(record.date) }}</strong></div><div><span>JUROS AO MÊS</span><strong>{{ percent(record.interestRate) }}</strong></div></div>
       } @else if (section === 'goals') {
-        <div class="domain-header"><span class="domain-icon material-symbols-outlined">flag</span><div><span class="domain-kicker">META FINANCEIRA</span><h2>{{ record.title }}</h2></div></div>
+        <div class="domain-header"><span class="domain-icon material-symbols-outlined">flag</span><div><span class="domain-kicker">META FINANCEIRA</span><h2>{{ record.title }}</h2></div><button type="button" class="domain-edit-button" aria-label="Editar meta" title="Editar meta" (click)="editRecord.emit(record)"><span class="material-symbols-outlined">edit</span></button></div>
         <div class="domain-metrics"><div><span>VALOR ALVO</span><strong>{{ money(record.targetAmount) }}</strong></div><div><span>VALOR ACUMULADO</span><strong>{{ money(record.accumulatedAmount) }}</strong></div><div><span>RESTANTE</span><strong>{{ money(difference(record.targetAmount, record.accumulatedAmount)) }}</strong></div></div><div class="domain-progress"><span [style.width.%]="progress(record.accumulatedAmount, record.targetAmount)"></span></div><div class="domain-progress-meta"><span>PROGRESSO</span><strong>{{ progressLabel(record.accumulatedAmount, record.targetAmount) }}</strong></div><div class="domain-fields"><div><span>DATA PREVISTA</span><strong>{{ date(record.dueDate) }}</strong></div></div>
       } @else if (section === 'budgets') {
         <div class="domain-header"><span class="domain-icon material-symbols-outlined">pie_chart</span><div><span class="domain-kicker">ORÇAMENTO</span><h2>{{ record.title }}</h2></div></div>
@@ -110,6 +110,7 @@ export class FinanceRecordDetailComponent {
   @Input({ required: true }) record!: FinanceRecord;
   @Input() accountTab: AccountTab = "overview";
   @Output() readonly accountTabChange = new EventEmitter<AccountTab>();
+  @Output() readonly editRecord = new EventEmitter<FinanceRecord>();
   @Input() cardTab: CardTab = "overview";
   @Input() loading = false;
   @Input() loadingActive = false;
