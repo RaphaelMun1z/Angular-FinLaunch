@@ -41,3 +41,5 @@
   .active-account-options { right: 0; left: auto; width: 190px; }
   .active-account-summary { display: none; }
 }
+.user-delete { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 16px; padding: 12px 0; border: 0; background: transparent; color: #ff9986; text-align: left; font: inherit; cursor: pointer; }
+.user-delete:hover { color: #ffd0c7; }

@@ -21,3 +21,4 @@
 .date-picker-grid button:hover, .date-picker-grid button.today { border-color: #ed6a50; color: #ff8b73; }
 .date-picker-grid button.selected { border-color: #ed3114; background: #ed3114; color: #fff; }
 .date-picker-today { width: 100%; margin-top: 11px; padding: 8px; border: 0; border-top: 1px solid #383a44; background: transparent; color: #ff6745; font: 800 11px Inter, sans-serif; cursor: pointer; }
+.date-picker-grid button:disabled { opacity: .3; cursor: not-allowed; }

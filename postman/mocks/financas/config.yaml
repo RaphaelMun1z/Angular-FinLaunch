@@ -1,0 +1,10 @@
+version: 1
+name: financas
+slug: financas
+protocol: http
+interceptRequests: true
+port: 4311
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

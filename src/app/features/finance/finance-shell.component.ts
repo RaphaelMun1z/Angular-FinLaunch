@@ -7,6 +7,7 @@ import {
   HostListener,
   inject,
   signal,
+  untracked,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { ActivatedRoute, Router } from "@angular/router";
@@ -43,6 +44,10 @@ import { FinanceSidebarComponent } from "../../layout/sidebar/finance-sidebar.co
 import { CurrencyInputDirective } from "../../shared/directives/currency-input.directive";
 import { DatePickerComponent } from "../../shared/components/date-picker.component";
 import { TelegramSettingsComponent } from "./telegram-settings.component";
+import { ConfirmationDialogComponent } from "../../shared/components/confirmation-dialog.component";
+import { integerValidator, localToday, movementDateValidator } from "../../shared/validators/movement.validators";
+import { toUserError } from "../../core/http/http-error.util";
+import { map } from "rxjs/operators";
 @Component({
   selector: "app-finance-shell",
   standalone: true,
@@ -57,6 +62,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
     CurrencyInputDirective,
     DatePickerComponent,
     TelegramSettingsComponent,
+    ConfirmationDialogComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./finance-shell.component.scss",
@@ -91,6 +97,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
         (accountChange)="selectActiveAccount($event)"
         (toggleMenu)="toggleUserMenu()"
         (logout)="logout()"
+        (deleteUser)="requestDeleteUser()"
       />
       <div class="app-layout">
         <app-finance-sidebar
@@ -593,7 +600,8 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                       ></span>
                     </div>
                     <div class="category-budget-values">
-                    <button type="button" class="outline-icon" aria-label="Editar orçamento" title="Editar orçamento" (click)="openBudgetForm(budget)"><span class="material-symbols-outlined">edit</span></button>
+                    <button type="button" class="outline-icon" aria-label="Editar orçamento" title="Editar orçamento" [disabled]="budgetSaving() || detailRefreshing() || detailRefreshFailed()" (click)="openBudgetForm(budget)"><span class="material-symbols-outlined">edit</span></button>
+                    <button type="button" class="outline-icon danger-action" aria-label="Excluir orçamento" title="Excluir orçamento" [disabled]="budgetSaving() || detailRefreshing() || detailRefreshFailed()" (click)="requestDeleteBudget(budget)"><span class="material-symbols-outlined">delete</span></button>
                       <span
                         >Consumido
                         <strong>{{ money(budget.currentAmount) }}</strong></span
@@ -1063,6 +1071,8 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                   }
                   @if (cardForm.controls.type.value === "VOUCHER") {
                     <div class="card-specific-fields">
+                      <label class="card-money-field">Saldo do voucher (R$)<input appCurrencyInput type="text" inputmode="decimal" formControlName="voucherBalance" /></label>
+                      @if (cardForm.controls.voucherBalance.invalid && cardForm.controls.voucherBalance.touched) { <small class="field-error">Informe um saldo maior ou igual a zero.</small> }
                       <label class="card-money-field"
                         >Valor da recarga<input
                           type="text"
@@ -1197,11 +1207,13 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                   <div class="category-form-grid">
                     <label>Objetivo *<input formControlName="title" maxlength="255" required /></label>
                     <label>Valor alvo (R$) *<input appCurrencyInput formControlName="amount" type="text" inputmode="decimal" required /></label>
+                    <label>Valor acumulado (R$)<input appCurrencyInput formControlName="accumulatedAmount" type="text" inputmode="decimal" /></label>
                     <label>Data prevista *<app-date-picker formControlName="date" ariaLabel="Data prevista para concluir a meta"></app-date-picker></label>
                   </div>
                   @if (entryForm.controls.title.touched && entryForm.controls.title.invalid) { <small class="field-error">Informe o objetivo da meta.</small> }
                   @if (entryForm.controls.amount.touched && entryForm.controls.amount.invalid) { <small class="field-error">Informe um valor alvo maior que zero.</small> }
                   @if (entryForm.controls.date.touched && entryForm.controls.date.invalid) { <small class="field-error">Informe a data prevista.</small> }
+                  @if (entryForm.controls.accumulatedAmount.touched && entryForm.controls.accumulatedAmount.invalid) { <small class="field-error">O valor acumulado não pode ser negativo.</small> }
                   @if (store.error(); as error) { <div class="form-error" role="alert">{{ error }}</div> }
                   <div class="category-form-actions">
                     <button type="button" class="secondary-btn" (click)="closeGoalForm()"><span class="material-symbols-outlined">close</span>CANCELAR</button>
@@ -1519,7 +1531,14 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                     </div>
                   </div>
                 } @else {
+                  <div class="instance-actions">
+                    @if (detailRefreshing()) { <span role="status">Atualizando detalhes...</span> }
+                    @if (detailRefreshFailed()) { <button type="button" class="secondary-btn" (click)="refreshSelectedDetail()">Tentar novamente</button> }
+                    @if (canDeleteSelected()) { <button type="button" class="secondary-btn danger-action" [attr.aria-label]="'Excluir ' + activeSection().singular" [disabled]="detailRefreshing() || detailRefreshFailed() || store.loading()" (click)="deleteRecord()"><span class="material-symbols-outlined" aria-hidden="true">delete</span>Excluir {{ activeSection().singular }}</button> }
+                    <button type="button" class="outline-icon" aria-label="Fechar detalhes" (click)="clearSelection()"><span class="material-symbols-outlined">close</span></button>
+                  </div>
                   <app-finance-record-detail
+                    [attr.inert]="detailRefreshing() || detailRefreshFailed() ? '' : null"
                     [section]="active()"
                     [record]="record"
                     (editRecord)="openModal($event)"
@@ -1550,6 +1569,8 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
               }
               @if (active() === "categories") {
                 <div class="category-detail-view">
+                  @if (detailRefreshing()) { <p role="status">Atualizando detalhes...</p> }
+                  @if (detailRefreshFailed()) { <button type="button" class="secondary-btn" (click)="refreshSelectedDetail()">Tentar novamente</button> }
                   <div
                     class="category-detail-header"
                     [style.--category-color]="categoryColor(record)"
@@ -1583,12 +1604,14 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                       >
                     </div>
                     <div class="category-detail-actions">
+                      <button type="button" class="category-detail-close danger-action" aria-label="Excluir categoria" title="Excluir categoria" [disabled]="detailRefreshing() || detailRefreshFailed() || store.loading()" (click)="deleteRecord()"><span class="material-symbols-outlined">delete</span></button>
                       <button
                         type="button"
                         class="category-detail-close"
                         aria-label="Editar categoria"
                         title="Editar categoria"
                         (click)="editCategory(record)"
+                        [disabled]="detailRefreshing() || detailRefreshFailed()"
                       >
                         <span class="material-symbols-outlined">edit</span>
                       </button>
@@ -1668,6 +1691,10 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                                 formControlName="limit"
                                 placeholder="R$ 0,00"
                             /></label>
+                            <label>VALOR CONSUMIDO<input appCurrencyInput type="text" inputmode="decimal" formControlName="currentAmount" placeholder="R$ 0,00" /></label>
+                            @if (budgetForm.controls.currentAmount.invalid && budgetForm.controls.currentAmount.touched) { <small class="field-error">O valor consumido não pode ser negativo.</small> }
+                            @if (budgetDetailLoading()) { <p role="status">Atualizando orçamento...</p> }
+                            @if (store.error(); as error) { <div class="form-error" role="alert">{{ error }}</div> }
                             @if (
                               budgetForm.controls.limit.invalid &&
                               budgetForm.controls.limit.touched
@@ -1689,7 +1716,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                                 type="submit"
                                 class="primary-btn"
                                 [disabled]="
-                                  budgetForm.invalid || budgetSaving()
+                                  budgetForm.invalid || budgetSaving() || budgetDetailLoading() || budgetDetailFailed()
                                 "
                               >
                                 <span class="material-symbols-outlined"
@@ -1726,7 +1753,8 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                             ></span>
                           </div>
                           <div class="category-budget-values">
-                    <button type="button" class="outline-icon" aria-label="Editar orçamento" title="Editar orçamento" (click)="openBudgetForm(budget)"><span class="material-symbols-outlined">edit</span></button>
+                    <button type="button" class="outline-icon" aria-label="Editar orçamento" title="Editar orçamento" [disabled]="budgetSaving() || detailRefreshing() || detailRefreshFailed()" (click)="openBudgetForm(budget)"><span class="material-symbols-outlined">edit</span></button>
+                    <button type="button" class="outline-icon danger-action" aria-label="Excluir orçamento" title="Excluir orçamento" [disabled]="budgetSaving() || detailRefreshing() || detailRefreshFailed()" (click)="requestDeleteBudget(budget)"><span class="material-symbols-outlined">delete</span></button>
                             <span
                               >Consumido
                               <strong>{{
@@ -2539,10 +2567,10 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
           <div class="movement-card-row">
           @if (
             movementForm.controls.method.value === "CARTAO_CREDITO" ||
-            movementForm.controls.method.value === "CARTAO_DEBITO"
+            movementForm.controls.method.value === "CARTAO_DEBITO" || movementForm.controls.method.value === "VOUCHER"
           ) {
             <label
-              >Cartão bancário<select formControlName="cardId">
+              >{{ movementForm.controls.method.value === "VOUCHER" ? "Cartão voucher" : "Cartão bancário" }}<select formControlName="cardId">
                 <option value="">Selecione um cartão</option>
                 @for (card of movementCards(); track card.id) {
                   <option [value]="card.apiId">{{ card.title }}</option>
@@ -2562,13 +2590,14 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                 formControlName="installments"
                 type="number"
                 min="1"
+                max="120"
                 step="1"
             /></label>
             @if (
               movementForm.controls.installments.touched &&
               movementForm.controls.installments.invalid
             ) {
-              <small class="field-error">Informe ao menos uma parcela.</small>
+              <small class="field-error">Informe um número inteiro de 1 a 120 parcelas.</small>
             }
           }
           </div>
@@ -2583,7 +2612,8 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
             ><input formControlName="recurring" type="checkbox" />Movimentação
             recorrente</label
           >
-          <label>{{ movementForm.controls.recurring.value ? "Data da primeira movimentação" : "Data" }}<app-date-picker formControlName="date" ariaLabel="Data da movimentação"></app-date-picker></label>
+          <label>{{ movementForm.controls.recurring.value ? "Data da primeira movimentação" : "Data" }}<app-date-picker formControlName="date" [maxDate]="today" ariaLabel="Data da movimentação"></app-date-picker></label>
+          @if (movementForm.controls.date.touched && movementForm.controls.date.invalid) { <small class="field-error">Informe uma data válida até hoje.</small> }
           @if (
             movementForm.controls.type.invalid &&
             movementForm.controls.type.touched
@@ -2640,7 +2670,7 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
     @if (modalOpen()) {
       <div
         class="modal-backdrop modal-context-list"
-        (click)="$event.target === $event.currentTarget && closeModal()"
+        (click)="onModalBackdropClick($event)"
       >
         <div class="modal" role="dialog" aria-modal="true">
           <div class="modal-head">
@@ -2663,6 +2693,10 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
                 <label>Categoria *<input formControlName="category" required /></label>
                 <label>Observações<textarea formControlName="notes" rows="3"></textarea></label>
               }
+              @if (active() === "goals") {
+                <label>Valor acumulado (R$)<input appCurrencyInput formControlName="accumulatedAmount" type="text" inputmode="decimal" /></label>
+                @if (entryForm.controls.accumulatedAmount.touched && entryForm.controls.accumulatedAmount.invalid) { <small class="field-error">O valor acumulado não pode ser negativo.</small> }
+              }
               <label>{{ active() === "goals" ? "Data prevista *" : "Data *" }}<app-date-picker formControlName="date" [ariaLabel]="active() === 'goals' ? 'Data prevista para concluir a meta' : 'Data do lancamento'"></app-date-picker></label>
             } @else {
               <small>A API permite alterar somente a descrição da movimentação.</small>
@@ -2675,6 +2709,9 @@ import { TelegramSettingsComponent } from "./telegram-settings.component";
           </form>
         </div>
       </div>
+    }
+    @if (deletionTarget(); as target) {
+      <app-confirmation-dialog [title]="target.title" [message]="target.message" [busy]="deleting()" [error]="deletionError()" (cancel)="cancelDeletion()" (confirm)="confirmDeletion()" />
     }
   `,
 })
@@ -2739,7 +2776,7 @@ export class FinanceShellComponent {
           ...this.store
             .sections()
             .budgets.records.filter(
-              (budget) => budget.title === category.title,
+              (budget) => budget.categoryId === category.apiId,
             ),
         ].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))
       : [];
@@ -2866,6 +2903,34 @@ export class FinanceShellComponent {
   );
   readonly authUser = this.auth.user;
   readonly userMenuOpen = signal(false);
+  readonly deletionTarget = signal<{ kind: "user" | "record" | "budget"; title: string; message: string; id?: string; categoryId?: string } | null>(null);
+  readonly deleting = signal(false);
+  readonly deletionError = signal<string | null>(null);
+  readonly detailRefreshing = signal(false);
+  readonly detailRefreshFailed = signal(false);
+  private readonly detailRefreshVersion = signal(0);
+  private readonly selectedDetailEffect = effect((onCleanup) => {
+    const id = this.store.selectedId();
+    const section = this.active();
+    this.detailRefreshVersion();
+    if (!id || !["accounts", "categories", "investments", "goals", "cards", "cardCredit", "cardDebit", "cardVoucher"].includes(section)) {
+      this.detailRefreshing.set(false);
+      this.detailRefreshFailed.set(false);
+      return;
+    }
+    untracked(() => {
+      this.detailRefreshing.set(true);
+      this.detailRefreshFailed.set(false);
+      const accountId = this.selectedRecord()?.accountId ?? this.route.snapshot.paramMap.get("accountId") ?? this.activeAccountId() ?? undefined;
+      const subscription = this.store.loadRecordDetail(section, id, accountId).subscribe((record) => {
+        this.detailRefreshing.set(false);
+        this.detailRefreshFailed.set(!record);
+      });
+      onCleanup(() => subscription.unsubscribe());
+    });
+  });
+  get today(): string { return localToday(); }
+  refreshSelectedDetail(): void { this.detailRefreshVersion.update((value) => value + 1); }
   readonly resourceLoadingVisible = signal(false);
   readonly resourceRevealActive = signal(false);
   readonly createdRecordId = signal<string | null>(null);
@@ -3008,6 +3073,7 @@ export class FinanceShellComponent {
     "#ec4899",
   ];
   readonly entryForm = this.fb.group({
+    accumulatedAmount: this.fb.nonNullable.control(0, Validators.min(0)),
     title: this.fb.nonNullable.control("", Validators.required),
     amount: this.fb.control<number | null>(null, [
       Validators.required,
@@ -3054,15 +3120,20 @@ export class FinanceShellComponent {
     closingDay: this.fb.control<number | null>(null),
     dueDay: this.fb.control<number | null>(null),
     voucherType: this.fb.nonNullable.control("VA_VR"),
+    voucherBalance: this.fb.control<number | null>(null, Validators.min(0)),
     rechargeAmount: this.fb.nonNullable.control(""),
     rechargeDay: this.fb.control<number | null>(null),
   });
   readonly budgetForm = this.fb.group({
+    currentAmount: this.fb.nonNullable.control(0, Validators.min(0)),
     limit: this.fb.control<number | null>(null, [
       Validators.required,
       Validators.min(0.01),
     ]),
   });
+  readonly budgetDetailLoading = signal(false);
+  readonly budgetDetailFailed = signal(false);
+  private budgetRequestVersion = 0;
   readonly investmentForm = this.fb.group({
     category: this.fb.nonNullable.control("", [
       Validators.required,
@@ -3086,10 +3157,10 @@ export class FinanceShellComponent {
     categoryId: this.fb.nonNullable.control("", Validators.required),
     cardId: this.fb.nonNullable.control(""),
     method: this.fb.control<MovementMethod | "">("", Validators.required),
-    date: this.fb.nonNullable.control(""),
+    date: this.fb.nonNullable.control("", [Validators.required, movementDateValidator]),
     description: this.fb.nonNullable.control("", Validators.maxLength(120)),
     recurring: this.fb.nonNullable.control(false),
-    installments: this.fb.control<number | null>(1, Validators.min(1)),
+    installments: this.fb.control<number | null>(1, [Validators.min(1), Validators.max(120), integerValidator]),
   });
   readonly transactionsCount = computed(
     () => this.store.sections().transactions.records.length,
@@ -3239,6 +3310,8 @@ export class FinanceShellComponent {
         this.statementMode.set(this.route.snapshot.queryParamMap.get("consulta") === "lancamentos" ? "transactions" : "statements");
         this.statementPeriodForm.reset({ from: queryFrom, to: queryTo });
       }
+      if (recordId && value && ["accounts", "categories", "investments", "goals", "cardCredit", "cardDebit", "cardVoucher"].includes(value)) this.store.selectRecord(recordId);
+      if (params.get("cardId")) { this.store.navigate("cardCredit"); this.store.selectRecord(params.get("cardId")); }
       if (queryFrom && queryTo && this.route.snapshot.url.some((segment) => segment.path === "faturas")) {
         this.invoicePeriodRange.set({ dataInicial: queryFrom, dataFinal: queryTo });
         this.invoiceMonth.set(queryFrom.slice(0, 7));
@@ -3383,6 +3456,7 @@ export class FinanceShellComponent {
     if (this.accountFormOpen()) this.closeAccountForm();
     if (this.cardFormOpen()) this.closeCardForm();
     if (this.goalFormOpen()) this.closeGoalForm();
+    this.closeBudgetForm();
     if (this.active() === "cards") {
       const card = this.store.sections().cards.records.find((record) => record.id === id);
       const cardSection = card?.cardType === "CREDITO"
@@ -3395,6 +3469,7 @@ export class FinanceShellComponent {
       if (cardSection) this.store.navigate(cardSection);
     }
     const previousId = this.store.selectedId();
+    if (previousId === id) this.refreshSelectedDetail();
     this.invoiceDetail.set(null);
     this.store.selectRecord(id);
     if (previousId !== id) this.triggerDetailReveal();
@@ -3839,6 +3914,7 @@ export class FinanceShellComponent {
       title: value.title.trim(),
       category: "Meta financeira",
       amount: value.amount,
+      accumulatedAmount: value.accumulatedAmount,
       date: value.date,
       notes: "",
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((saved) => {
@@ -3847,6 +3923,7 @@ export class FinanceShellComponent {
     });
   }
   openModal(record?: FinanceRecord): void {
+    if (record && (this.detailRefreshing() || this.detailRefreshFailed())) return;
     if (this.active() === "categories" && !record) {
       this.openCategoryForm();
       return;
@@ -3873,6 +3950,7 @@ export class FinanceShellComponent {
     this.entryForm.reset({
       title: record?.title ?? "",
       amount: record?.amount ?? null,
+      accumulatedAmount: record?.accumulatedAmount ?? 0,
       date: record?.date || null,
       category: record?.category ?? "",
       notes: record?.notes ?? "",
@@ -3885,6 +3963,9 @@ export class FinanceShellComponent {
     this.entryForm.controls.date.setValidators(Validators.required);
     this.entryForm.controls.category.setValidators(Validators.required);
     this.entryForm.updateValueAndValidity();
+  }
+  onModalBackdropClick(event: Event): void {
+    if (event.target === event.currentTarget) this.closeModal();
   }
   save(): void {
     if (this.entryForm.invalid) return;
@@ -4011,7 +4092,7 @@ export class FinanceShellComponent {
         ? "CREDITO"
         : method === "CARTAO_DEBITO"
           ? "DEBITO"
-          : null;
+          : method === "VOUCHER" ? "VOUCHER" : null;
     return this.store
       .sections()
       .cards.records.filter(
@@ -4031,8 +4112,9 @@ export class FinanceShellComponent {
     this.paymentPickerOpen.update((open) => !open);
   }
   selectMovementPayment(method: MovementMethod): void {
+    const previousMethod = this.movementForm.controls.method.value;
     this.movementForm.controls.method.setValue(method);
-    if (method !== "CARTAO_CREDITO" && method !== "CARTAO_DEBITO") {
+    if (previousMethod !== method) {
       this.movementForm.controls.cardId.setValue("");
     }
     this.movementForm.controls.method.markAsTouched();
@@ -4050,15 +4132,15 @@ export class FinanceShellComponent {
   syncMovementConditionalValidation(): void {
     const method = this.movementForm.controls.method.value;
     const cardRequired =
-      method === "CARTAO_CREDITO" || method === "CARTAO_DEBITO";
+      method === "CARTAO_CREDITO" || method === "CARTAO_DEBITO" || method === "VOUCHER";
     const installmentsRequired = method === "CARTAO_CREDITO";
     this.movementForm.controls.cardId.setValidators(
       cardRequired ? [Validators.required] : [],
     );
     this.movementForm.controls.installments.setValidators(
       installmentsRequired
-        ? [Validators.required, Validators.min(1)]
-        : [Validators.min(1)],
+        ? [Validators.required, Validators.min(1), Validators.max(120), integerValidator]
+        : [],
     );
     this.movementForm.controls.cardId.updateValueAndValidity({
       emitEvent: false,
@@ -4081,6 +4163,7 @@ export class FinanceShellComponent {
   saveMovement(): void {
     if (!this.activeAccountId()) return;
     this.syncMovementConditionalValidation();
+    this.movementForm.controls.date.updateValueAndValidity();
     if (this.movementForm.invalid || this.movementSaving()) {
       this.movementForm.markAllAsTouched();
       return;
@@ -4088,15 +4171,16 @@ export class FinanceShellComponent {
     const value = this.movementForm.getRawValue();
     if (!value.type || !value.method || value.amount === null) return;
     const cardPayment =
-      value.method === "CARTAO_CREDITO" || value.method === "CARTAO_DEBITO";
-    if (cardPayment && !value.cardId) {
+      value.method === "CARTAO_CREDITO" || value.method === "CARTAO_DEBITO" || value.method === "VOUCHER";
+    if (cardPayment && !this.movementCards().some((card) => card.apiId === value.cardId)) {
+      this.movementForm.controls.cardId.setErrors({ card: true });
       this.movementForm.controls.cardId.markAsTouched();
       return;
     }
     const creditCardPayment = value.method === "CARTAO_CREDITO";
     if (
       creditCardPayment &&
-      (!value.installments || value.installments < 1)
+      (!value.installments || !Number.isInteger(value.installments) || value.installments < 1 || value.installments > 120)
     ) {
       this.movementForm.controls.installments.markAsTouched();
       return;
@@ -4207,6 +4291,7 @@ export class FinanceShellComponent {
       closingDay: record.closingDay ?? null,
       dueDay: record.dueDay ?? null,
       voucherType: record.voucherType ?? "VA_VR",
+      voucherBalance: record.balance ?? null,
       rechargeAmount: record.rechargeAmount === undefined ? "" : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(record.rechargeAmount),
       rechargeDay: record.rechargeDay ?? null,
     });
@@ -4345,6 +4430,7 @@ export class FinanceShellComponent {
         tipoVoucher: value.voucherType as "VA_VR" | "CREDITO_VOUNCHER",
         valorRecarga: rechargeAmount!,
         diaRecarga: value.rechargeDay!,
+        ...(value.voucherBalance !== null ? { saldoCorrente: value.voucherBalance } : {}),
       };
     const editingId = this.cardEditingId();
     const previousIds = new Set(
@@ -4363,12 +4449,24 @@ export class FinanceShellComponent {
     });
   }
   openBudgetForm(record?: FinanceRecord): void {
-    if (!this.selectedRecord()?.apiId) return;
+    const categoryId = this.selectedRecord()?.apiId;
+    if (!categoryId || this.budgetSaving() || this.detailRefreshing() || this.detailRefreshFailed()) return;
+    const version = ++this.budgetRequestVersion;
     this.store.clearError();
     this.budgetEditingId.set(record?.apiId ?? null);
     this.setCategoryTab("budgets");
     this.budgetFormOpen.set(true);
-    this.budgetForm.reset({ limit: record?.amount ?? null });
+    this.budgetForm.reset({ limit: null, currentAmount: 0 });
+    this.budgetDetailFailed.set(false);
+    this.budgetDetailLoading.set(!!record?.apiId);
+    if (record?.apiId) {
+      this.store.loadRecordDetail("budgets", record.apiId, undefined, categoryId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((detail) => {
+        if (version !== this.budgetRequestVersion || this.selectedRecord()?.apiId !== categoryId) return;
+        this.budgetDetailLoading.set(false);
+        this.budgetDetailFailed.set(!detail);
+        if (detail) this.budgetForm.reset({ limit: detail.amount ?? null, currentAmount: detail.currentAmount ?? 0 });
+      });
+    }
   }
   openInvestmentForm(): void {
     this.investmentEditingId.set(null);
@@ -4434,26 +4532,32 @@ export class FinanceShellComponent {
   }
   closeBudgetForm(): void {
     if (!this.budgetSaving()) {
+      this.budgetRequestVersion++;
+      this.budgetDetailLoading.set(false);
+      this.budgetDetailFailed.set(false);
       this.budgetFormOpen.set(false);
       this.budgetEditingId.set(null);
-      this.budgetForm.reset({ limit: null });
+      this.budgetForm.reset({ limit: null, currentAmount: 0 });
     }
   }
   saveBudget(): void {
     const categoryId = this.selectedRecord()?.apiId;
-    if (!categoryId || this.budgetForm.invalid || this.budgetSaving()) {
+    if (!categoryId || this.budgetForm.invalid || this.budgetSaving() || this.budgetDetailLoading() || this.budgetDetailFailed()) {
       this.budgetForm.markAllAsTouched();
       return;
     }
     const value = this.budgetForm.getRawValue();
     if (value.limit === null) return;
     this.budgetSaving.set(true);
-    const request: BudgetRequest = { valorLimite: value.limit };
+    const request: BudgetRequest = { valorLimite: value.limit, valorCorrente: value.currentAmount };
     const editingId = this.budgetEditingId();
     (editingId ? this.store.updateBudget(categoryId, editingId, request) : this.store.createBudget(categoryId, request)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (created) => {
         this.budgetSaving.set(false);
-        if (created) this.closeBudgetForm();
+        if (created) {
+          this.closeBudgetForm();
+          this.refreshSelectedDetail();
+        }
       },
       error: () => this.budgetSaving.set(false),
     });
@@ -4565,8 +4669,45 @@ export class FinanceShellComponent {
       });
   }
   deleteRecord(): void {
-    if (window.confirm("Deseja realmente excluir este registro?"))
-      this.store.deleteSelected();
+    const record = this.selectedRecord();
+    if (!record?.apiId || !this.canDeleteSelected() || this.detailRefreshing() || this.detailRefreshFailed()) return;
+    this.deletionError.set(null);
+    this.deletionTarget.set({ kind: "record", id: record.apiId, title: `Excluir ${this.activeSection().singular}`, message: `Deseja excluir “${record.title}”? Esta ação não pode ser desfeita.` });
+  }
+  canDeleteSelected(): boolean {
+    return ["accounts", "categories", "cards", "cardCredit", "cardDebit", "cardVoucher", "investments", "goals", "statements"].includes(this.active());
+  }
+  requestDeleteUser(): void {
+    this.userMenuOpen.set(false);
+    this.deletionError.set(null);
+    this.deletionTarget.set({ kind: "user", title: "Excluir minha conta", message: "Deseja excluir permanentemente sua conta de usuário? A exclusão só é permitida quando não há contas bancárias, cartões, movimentações ou outros recursos financeiros vinculados." });
+  }
+  requestDeleteBudget(budget: FinanceRecord): void {
+    const categoryId = this.selectedRecord()?.apiId;
+    if (!categoryId || !budget.apiId || this.budgetSaving() || this.detailRefreshing() || this.detailRefreshFailed()) return;
+    this.deletionError.set(null);
+    this.deletionTarget.set({ kind: "budget", id: budget.apiId, categoryId, title: "Excluir orçamento", message: `Deseja excluir o orçamento de ${this.monthReference(budget.date)}? Esta ação não pode ser desfeita.` });
+  }
+  cancelDeletion(): void { if (!this.deleting()) this.deletionTarget.set(null); }
+  confirmDeletion(): void {
+    const target = this.deletionTarget();
+    if (!target || this.deleting()) return;
+    if (target.kind === "record" && this.selectedRecord()?.apiId !== target.id) { this.cancelDeletion(); return; }
+    this.deleting.set(true);
+    this.deletionError.set(null);
+    const operation = target.kind === "user" ? this.auth.deleteAccount().pipe(map(() => true))
+      : target.kind === "budget" ? this.store.deleteBudget(target.categoryId!, target.id!) : this.store.deleteSelected();
+    operation.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (deleted) => {
+        this.deleting.set(false);
+        if (!deleted) { this.deletionError.set(this.store.error() ?? "Não foi possível excluir. Tente novamente."); return; }
+        this.deletionTarget.set(null);
+        if (target.kind === "user") this.logout();
+        else if (target.kind === "record") this.clearSelection();
+        else { this.closeBudgetForm(); this.refreshSelectedDetail(); }
+      },
+      error: (error: unknown) => { this.deleting.set(false); this.deletionError.set(toUserError(error)); },
+    });
   }
   money(value: number | undefined): string {
     return value === undefined

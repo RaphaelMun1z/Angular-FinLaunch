@@ -53,6 +53,7 @@ export interface FinanceRecord {
   creditLimit?: number;
   balance?: number;
   accountId?: string;
+  categoryId?: string;
   cardType?: string;
   voucherType?: "VA_VR" | "CREDITO_VOUNCHER";
   closingDay?: number;

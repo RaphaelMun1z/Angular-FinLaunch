@@ -1,0 +1,6 @@
+simulation: financas-ui
+routing: path
+mocks:
+  - name: financas
+    routeKey: financas
+    path: postman/mocks/financas/config.yaml

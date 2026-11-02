@@ -24,15 +24,15 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from "@angular/forms";
             <strong>{{ monthLabel }}</strong>
             <button type="button" (click)="changeMonth(1)" aria-label="Próximo mês"><span class="material-symbols-outlined">chevron_right</span></button>
           </div>
-          <div class="date-picker-weekdays">@for (day of weekdays; track day) { <span>{{ day }}</span> }</div>
+          <div class="date-picker-weekdays">@for (day of weekdays; track $index) { <span>{{ day }}</span> }</div>
           <div class="date-picker-grid">
             @for (day of calendarDays; track $index) {
               @if (day) {
-                <button type="button" [class.selected]="day === value" [class.today]="day === today" (click)="select(day)">{{ day.slice(8, 10) }}</button>
+                <button type="button" [disabled]="disabled || isUnavailable(day)" [class.selected]="day === value" [class.today]="day === today" (click)="select(day)">{{ day.slice(8, 10) }}</button>
               } @else { <span></span> }
             }
           </div>
-          <button type="button" class="date-picker-today" (click)="select(today)">Hoje</button>
+          <button type="button" class="date-picker-today" [disabled]="disabled || isUnavailable(today)" (click)="select(today)">Hoje</button>
         </div>
       }
     </div>
@@ -41,6 +41,7 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from "@angular/forms";
 export class DatePickerComponent implements ControlValueAccessor {
   @Input() ariaLabel = "Selecionar data";
   @Input() inline = true;
+  @Input() maxDate: string | null = null;
   value = "";
   viewMonth = this.monthFromDate(new Date());
   open = false;
@@ -79,12 +80,14 @@ export class DatePickerComponent implements ControlValueAccessor {
     this.viewMonth = this.monthFromDate(date);
   }
   select(value: string): void {
+    if (this.disabled || this.isUnavailable(value)) return;
     this.value = value;
     this.viewMonth = value.slice(0, 7);
     this.onChange(value);
     this.onTouched();
     this.open = false;
   }
+  isUnavailable(value: string): boolean { return this.maxDate !== null && value > this.maxDate; }
   private monthFromDate(date: Date): string { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; }
   private toIsoDate(date: Date): string { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
 }

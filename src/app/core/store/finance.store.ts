@@ -1,7 +1,7 @@
 import { computed, inject } from "@angular/core";
 import { patchState, signalStore, withComputed, withMethods, withState } from "@ngrx/signals";
 import { forkJoin, Observable, of } from "rxjs";
-import { catchError, map, switchMap } from "rxjs/operators";
+import { catchError, map, switchMap, tap } from "rxjs/operators";
 import { FinanceApiService } from "../api/finance-api.service";
 import { BankAccountRequest, BankAccountResponse, BankAccountUpdateRequest, BudgetRequest, CardRequest, CardResponse, CategoryRequest, CategoryResponse, GoalRequest, GoalResponse, InvestmentRequest, InvestmentResponse, MovementRequest, PeriodRequest, RecurrenceRequest } from "../api/api.models";
 import { toUserError } from "../http/http-error.util";
@@ -195,12 +195,40 @@ export const FinanceStore = signalStore(
         error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
       });
     },
+    loadRecordDetail(section: SectionKey, id: string, accountId?: string, categoryId?: string): Observable<FinanceRecord | null> {
+      let request: Observable<FinanceRecord | null>;
+      switch (section) {
+        case "accounts": request = api.getAccount(id).pipe(map(mapAccountRecord)); break;
+        case "categories": request = api.getCategory(id).pipe(map((item) => mapCategoryRecords([item])[0] ?? null)); break;
+        case "investments": request = api.getInvestment(id).pipe(map((item) => mapApiSections([], [], [], [item], []).investments.records[0] ?? null)); break;
+        case "goals": request = api.getGoal(id).pipe(map((item) => mapApiSections([], [], [], [], [item]).goals.records[0] ?? null)); break;
+        case "cards": case "cardCredit": case "cardDebit": case "cardVoucher":
+          if (!accountId) return of(null);
+          request = api.getCard(accountId, id).pipe(map((item) => mapCardRecords([{ ...item, contaBancariaId: item.contaBancariaId ?? accountId }])[0] ?? null)); break;
+        case "budgets":
+          if (!categoryId) return of(null);
+          request = api.getBudget(categoryId, id).pipe(map((item) => item.id ? ({ id: item.id, apiId: item.id, categoryId, title: item.categoria ?? "Orçamento", category: "Limite mensal", amount: item.valorLimite, currentAmount: item.valorCorrente, date: item.mesReferencia, type: "expense" }) : null)); break;
+        default: return of(null);
+      }
+      return request.pipe(tap((record) => {
+        if (!record) { patchState(store, { error: "Não foi possível carregar os detalhes atualizados." }); return; }
+        const keys: SectionKey[] = record.cardType ? ["cards", "cardCredit", "cardDebit", "cardVoucher"] : [section];
+        const sections = { ...store.sections() };
+        for (const key of keys) {
+          const previous = sections[key].records.find((item) => item.id === id);
+          const records = sections[key].records.filter((item) => item.id !== id);
+          if (!record.cardType || key === "cards" || key === ({ CREDITO: "cardCredit", DEBITO: "cardDebit", VOUCHER: "cardVoucher" } as Record<string, string>)[record.cardType]) records.push({ ...previous, ...record });
+          sections[key] = { ...sections[key], records };
+        }
+        patchState(store, { sections, error: null });
+      }), catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(null); }));
+    },
     loadBudgets(categoryId: string): void {
       patchState(store, { loading: true, error: null });
       api.listBudgets(categoryId).subscribe({
         next: (items) => {
           const records = items.filter((item) => item.id !== undefined && item.categoria !== undefined && item.valorLimite !== undefined && item.mesReferencia !== undefined).map((item) => ({ id: item.id!, apiId: item.id!, title: item.categoria!, category: "Limite mensal", amount: item.valorLimite!, currentAmount: item.valorCorrente, date: item.mesReferencia!, type: "expense" as const }));
-          patchState(store, { sections: { ...store.sections(), budgets: { ...store.sections().budgets, records } }, loading: false, error: null });
+          patchState(store, { sections: { ...store.sections(), budgets: { ...store.sections().budgets, records: records.map((record) => ({ ...record, categoryId })) } }, loading: false, error: null });
         },
         error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
       });
@@ -386,6 +414,19 @@ export const FinanceStore = signalStore(
         catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(false); }),
       );
     },
+    deleteBudget(categoryId: string, budgetId: string): Observable<boolean> {
+      return api.deleteBudget(categoryId, budgetId).pipe(
+        map(() => {
+          const sections = store.sections();
+          patchState(store, { sections: { ...sections,
+            budgets: { ...sections.budgets, records: sections.budgets.records.filter((item) => item.apiId !== budgetId) },
+            categories: { ...sections.categories, records: sections.categories.records.map((item) => item.apiId === categoryId && item.budget?.id === budgetId ? { ...item, budget: undefined } : item) },
+          }, error: null });
+          return true;
+        }),
+        catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(false); }),
+      );
+    },
     createInvestment(values: InvestmentRequest): Observable<boolean> {
       return api.createInvestment(values).pipe(
         map((created) => {
@@ -450,7 +491,7 @@ export const FinanceStore = signalStore(
       }
       if (active === "goals" && values.amount !== undefined && values.date) {
         const selectedGoal = store.selectedRecord();
-        const request: GoalRequest = { objetivo: values.title, valorAlvo: values.amount, dataConclusaoPrevista: values.date, ...(editingId && selectedGoal?.apiId === editingId && selectedGoal.accumulatedAmount !== undefined ? { valorAcumulado: selectedGoal.accumulatedAmount } : {}) };
+        const request: GoalRequest = { objetivo: values.title, valorAlvo: values.amount, dataConclusaoPrevista: values.date, valorAcumulado: values.accumulatedAmount ?? selectedGoal?.accumulatedAmount ?? 0 };
         const operation = editingId ? api.updateGoal(editingId, request) : api.createGoal(request);
         return operation.pipe(
           map(() => { patchState(store, { error: null }); refresh(); return true; }),
@@ -460,12 +501,12 @@ export const FinanceStore = signalStore(
       patchState(store, { error: "Nao foi possivel salvar: faltam dados exigidos pela API." });
       return of(false);
     },
-    deleteSelected(): void {
+    deleteSelected(): Observable<boolean> {
       const record = store.selectedRecord();
-      if (!record) return;
+      if (!record) return of(false);
       if (!record.apiId) {
         patchState(store, { error: "A API documentada só permite excluir movimentações pelo identificador do registro." });
-        return;
+        return of(false);
       }
       const active = store.active();
       const operation = active === "statements" ? api.deleteMovement(record.apiId)
@@ -477,18 +518,19 @@ export const FinanceStore = signalStore(
         : null;
       if (!operation) {
         patchState(store, { error: "A API não disponibiliza exclusão para este tipo de registro." });
-        return;
+        return of(false);
       }
       patchState(store, { loading: true, error: null });
-      operation.subscribe({
-        next: () => patchState(store, {
+      return operation.pipe(map(() => {
+        patchState(store, {
           sections: removeRecordFromSections(store.sections(), record.apiId!, active),
           selectedId: null,
           loading: false,
           error: null,
-        }),
-        error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
-      });
+        });
+        if (active === "accounts" && store.activeAccountId() === record.apiId) patchState(store, { activeAccountId: null });
+        return true;
+      }), catchError((error: unknown) => { patchState(store, { loading: false, error: toUserError(error) }); return of(false); }));
     },
     };
   }),

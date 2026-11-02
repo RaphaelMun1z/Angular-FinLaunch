@@ -50,6 +50,8 @@ yarn-error.log
 
 .notes.md
 baseline.json
+test-results/
+playwright-report/
 
 # Ignore .history for the xyz.local-history VSCode extension
 .history

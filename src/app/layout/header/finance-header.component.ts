@@ -34,6 +34,7 @@ export class FinanceHeaderComponent {
   @Output() readonly accountChange = new EventEmitter<string>();
   @Output() readonly toggleMenu = new EventEmitter<void>();
   @Output() readonly logout = new EventEmitter<void>();
+  @Output() readonly deleteUser = new EventEmitter<void>();
 
   activeAccountTitle(): string {
     return this.accounts.find((account) => account.id === this.activeAccountId)?.title ?? "Selecionar conta";
