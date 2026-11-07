@@ -18,7 +18,8 @@ if (existsSync(envPath)) {
 // Variáveis do ambiente (por exemplo, as configuradas no Render) têm prioridade
 // sobre os valores do arquivo .env local.
 const devUrl = process.env.API_URL_DEV || values.API_URL_DEV || "/api";
-const prodUrl = process.env.API_URL_PROD || values.API_URL_PROD || "Não carregou a URL";
+const prodUrl =
+	process.env.API_URL_PROD || values.API_URL_PROD || "Não carregou a URL";
 
 const writeEnvironment = (file, production, apiUrl) => {
 	const content = `export const environment = ${JSON.stringify({ production, apiUrl }, null, 2)};\n`;

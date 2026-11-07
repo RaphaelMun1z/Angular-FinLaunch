@@ -35,6 +35,8 @@ export const FinanceStore = signalStore(
   withMethods((store, api = inject(FinanceApiService)) => {
     const loadedSections = new Set<SectionKey>();
     const loadingSections = new Set<SectionKey>();
+    let invoiceRequestKey: string | null = null;
+    let invoiceRequestVersion = 0;
     let dashboardLoading = false;
     let dashboardMonthInFlight: string | undefined;
     let pendingDashboardMonth: string | undefined;
@@ -128,8 +130,19 @@ export const FinanceStore = signalStore(
       if (accounts.length) loadCards(accounts.map((account) => ({ id: account.apiId, nomeDoBanco: account.title, creditoTotal: account.creditTotal ?? 0, saldoCorrente: account.balance })));
       else api.listAccounts().subscribe({ next: loadCards, error: fail });
     };
+    const loadBudgets = (categoryId: string): void => {
+      patchState(store, { loading: true, error: null });
+      api.listBudgets(categoryId).subscribe({
+        next: (items) => {
+          const records = items.filter((item) => item.id !== undefined && item.categoria !== undefined && item.valorLimite !== undefined && item.mesReferencia !== undefined).map((item) => ({ id: item.id!, apiId: item.id!, title: item.categoria!, category: "Limite mensal", amount: item.valorLimite!, currentAmount: item.valorCorrente, date: item.mesReferencia!, type: "expense" as const }));
+          patchState(store, { sections: { ...store.sections(), budgets: { ...store.sections().budgets, records: records.map((record) => ({ ...record, categoryId })) } }, loading: false, error: null });
+        },
+        error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
+      });
+    };
     return {
     loadDashboard,
+    loadBudgets,
     loadFromApi(force = false): void { loadSection(store.active(), force); },
     loadSection,
     loadAccountMovements(accountId: string, period: PeriodRequest): void {
@@ -223,25 +236,31 @@ export const FinanceStore = signalStore(
         patchState(store, { sections, error: null });
       }), catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(null); }));
     },
-    loadBudgets(categoryId: string): void {
-      patchState(store, { loading: true, error: null });
-      api.listBudgets(categoryId).subscribe({
-        next: (items) => {
-          const records = items.filter((item) => item.id !== undefined && item.categoria !== undefined && item.valorLimite !== undefined && item.mesReferencia !== undefined).map((item) => ({ id: item.id!, apiId: item.id!, title: item.categoria!, category: "Limite mensal", amount: item.valorLimite!, currentAmount: item.valorCorrente, date: item.mesReferencia!, type: "expense" as const }));
-          patchState(store, { sections: { ...store.sections(), budgets: { ...store.sections().budgets, records: records.map((record) => ({ ...record, categoryId })) } }, loading: false, error: null });
-        },
-        error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
+    loadInvoices(accountId: string, cardId: string, period: PeriodRequest, force = true): boolean {
+      const requestKey = JSON.stringify([accountId, cardId, period.dataInicial, period.dataFinal]);
+      // An empty response or an error still completes an automatic attempt.
+      // Only a new query or an explicit refresh should start another request.
+      if (!force && invoiceRequestKey === requestKey) return false;
+      const queryChanged = invoiceRequestKey !== requestKey;
+      invoiceRequestKey = requestKey;
+      const requestVersion = ++invoiceRequestVersion;
+      patchState(store, {
+        loading: true,
+        error: null,
+        ...(queryChanged ? { sections: { ...store.sections(), invoices: { ...store.sections().invoices, records: [] } } } : {}),
       });
-    },
-    loadInvoices(accountId: string, cardId: string, period: PeriodRequest): void {
-      patchState(store, { loading: true, error: null });
       api.listInvoices(accountId, cardId, period).subscribe({
         next: (items) => {
+          if (requestVersion !== invoiceRequestVersion) return;
           const records = items.filter((item) => item.id !== undefined && item.valorTotal !== undefined && item.dataReferencia !== undefined).map((item) => ({ id: item.id!, apiId: item.id!, title: `Fatura ${formatMonthYear(item.dataReferencia!)}`, category: item.status ?? "", amount: item.valorTotal!, date: item.dataReferencia!, type: "expense" as const, status: item.status }));
           patchState(store, { sections: { ...store.sections(), invoices: { ...store.sections().invoices, records } }, loading: false, error: null });
         },
-        error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
+        error: (error: unknown) => {
+          if (requestVersion !== invoiceRequestVersion) return;
+          patchState(store, { loading: false, error: toUserError(error) });
+        },
       });
+      return true;
     },
     loadInvoiceDetail(accountId: string, cardId: string, invoiceId: string): Observable<FinanceRecord | null> {
       patchState(store, { loading: true, error: null });
@@ -289,11 +308,13 @@ export const FinanceStore = signalStore(
       );
     },
     clearInvoices(): void {
+      invoiceRequestKey = null;
+      invoiceRequestVersion++;
       patchState(store, { sections: { ...store.sections(), invoices: { ...store.sections().invoices, records: [] } } });
     },
     navigate(active: SectionKey): void { patchState(store, { active, selectedId: null, query: "", filters: initialState.filters, accountTab: "overview", cardTab: "overview", categoryTab: "overview", editingId: null }); },
     setActiveAccountId(activeAccountId: string | null): void { patchState(store, { activeAccountId }); },
-    resetSession(): void { loadedSections.clear(); loadingSections.clear(); dashboardLoading = false; dashboardMonthInFlight = undefined; pendingDashboardMonth = undefined; patchState(store, { ...initialState, sections: initialState.sections }); },
+    resetSession(): void { loadedSections.clear(); loadingSections.clear(); invoiceRequestKey = null; invoiceRequestVersion++; dashboardLoading = false; dashboardMonthInFlight = undefined; pendingDashboardMonth = undefined; patchState(store, { ...initialState, sections: initialState.sections }); },
     clearError(): void { patchState(store, { error: null }); },
     selectRecord(selectedId: string | null): void { patchState(store, { selectedId }); },
     setQuery(query: string): void { patchState(store, { query }); },
@@ -404,13 +425,13 @@ export const FinanceStore = signalStore(
     },
     createBudget(categoryId: string, values: BudgetRequest): Observable<boolean> {
       return api.createBudget(categoryId, values).pipe(
-        map(() => { (store as unknown as { loadBudgets: (id: string) => void }).loadBudgets(categoryId); return true; }),
+        map(() => { loadBudgets(categoryId); return true; }),
         catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(false); }),
       );
     },
     updateBudget(categoryId: string, budgetId: string, values: BudgetRequest): Observable<boolean> {
       return api.updateBudget(categoryId, budgetId, values).pipe(
-        map(() => { (store as unknown as { loadBudgets: (id: string) => void }).loadBudgets(categoryId); patchState(store, { error: null }); return true; }),
+        map(() => { loadBudgets(categoryId); patchState(store, { error: null }); return true; }),
         catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(false); }),
       );
     },
@@ -478,7 +499,7 @@ export const FinanceStore = signalStore(
     saveRecord(values: Omit<FinanceRecord, "id" | "type" | "status" | "method">): Observable<boolean> {
       const active = store.active();
       const editingId = store.editingId();
-      const refresh = (): void => (store as unknown as { loadFromApi: (force?: boolean) => void }).loadFromApi(true);
+      const refresh = (): void => loadSection(active, true);
       if (active === "statements" && editingId) {
         return api.updateMovement(editingId, { descricao: values.title.trim() }).pipe(
           map((updated) => {

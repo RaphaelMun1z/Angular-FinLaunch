@@ -24,10 +24,13 @@ test('meta consulta detalhes atuais e salva o valor acumulado', async ({ page, r
   await page.getByRole('button', { name: 'Editar meta', exact: true }).click();
   await expect(page.getByLabel('Valor acumulado (R$)')).toBeVisible();
   await page.getByLabel('Valor acumulado (R$)').fill('95000');
+  await configure(request, { staleLists: false });
   const saved = page.waitForRequest(r => r.method() === 'PUT' && r.url().endsWith('/metas-financeiras/goal-1'));
   await page.getByRole('dialog').getByRole('button', { name: 'SALVAR', exact: true }).click();
   expect((await saved).postDataJSON().valorAcumulado).toBe(950);
   await expect.poll(async () => (await state(request)).goals[0].valorAcumulado).toBe(950);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('app-finance-record-detail')).toContainText('950,00');
 });
 
 test('orçamento consulta por ID, edita consumo, confirma exclusão e trata erro', async ({ page, request }) => {
@@ -101,12 +104,14 @@ test('voucher permite editar saldo e usar o cartão na movimentação', async ({
   expect((await sent).postDataJSON()).toMatchObject({ metodoPagamento: 'VOUCHER', cartaoId: 'voucher-1', valorTotal: 25 });
 });
 
-test('detalhes de conta e investimento são recarregados e ações estão visíveis no celular', async ({ page }) => {
+test('detalhes de conta e investimento são recarregados e ações estão visíveis no celular', async ({ page, request }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   for (const [route, endpoint, title, edit] of [
     ['/contas-bancarias/account-1', '/contas-bancarias/account-1', 'Excluir conta bancária', 'Editar conta'],
-    ['/investimentos/investment-1', '/investimentos/investment-1', 'Excluir investimento', 'Editar investimento'],
+    ['/conta/account-1/investimentos/investment-1', '/investimentos/investment-1', 'Excluir investimento', 'Editar investimento'],
   ]) {
+    // Cada recurso começa com a conta exigida pela navegação disponível.
+    await request.post(`${mock}/__test/reset`, { data: {} });
     const fresh = page.waitForResponse(r => r.url().endsWith(endpoint));
     await page.goto(route);
     await fresh;
@@ -158,6 +163,8 @@ test('nova meta exibe campo acumulado e mantém o valor na criação', async ({ 
   await form.getByRole('button', { name: 'Hoje' }).click();
   await form.getByRole('button', { name: /SALVAR META/ }).click();
   await expect.poll(async () => (await state(request)).goals.find((g: any) => g.objetivo === 'Viagem')?.valorAcumulado).toBe(200);
+  await expect(form).toHaveCount(0);
+  await expect(record(page, 'Viagem')).toBeVisible();
 });
 
 test('falha ao buscar detalhes bloqueia edição e permite tentar novamente', async ({ page, request }) => {

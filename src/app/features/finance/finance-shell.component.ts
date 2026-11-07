@@ -2876,9 +2876,8 @@ export class FinanceShellComponent {
     if (routeCardId && this.active() === "cardCredit" && this.activeAccountId()) {
       const card = this.store.sections().cardCredit.records.find((record) => record.apiId === routeCardId);
       if (card) {
-        if (this.store.cardTab() !== routeCardTab) this.setCardTab(routeCardTab);
-        else if (card.cardType === "CREDITO" && !this.store.loading() && this.store.sections().invoices.records.length === 0) this.loadRouteCardInvoices(card.apiId!);
-        if (routeInvoiceId && !this.invoiceDetail() && !this.store.loading()) this.loadInvoiceDetailById(routeInvoiceId);
+        if (this.store.cardTab() !== routeCardTab) this.store.setCardTab(routeCardTab);
+        if (card.cardType === "CREDITO") untracked(() => this.loadRouteCardInvoices(card.apiId!, false));
       }
     }
   });
@@ -3718,11 +3717,11 @@ export class FinanceShellComponent {
     }
     if (tab === "invoices" && record?.apiId && record.cardType === "CREDITO") this.loadRouteCardInvoices(record.apiId);
   }
-  private loadRouteCardInvoices(cardId: string): void {
+  private loadRouteCardInvoices(cardId: string, force = true): void {
     const accountId = this.activeAccountId();
     if (!accountId) return;
-    this.loadingTarget.set("detail");
-    this.store.loadInvoices(accountId, cardId, this.periodForMonth(this.invoiceMonth()));
+    const period = this.invoicePeriodRange() ?? this.periodForMonth(this.invoiceMonth());
+    if (this.store.loadInvoices(accountId, cardId, period, force)) this.loadingTarget.set("detail");
   }
   setInvoiceMonth(month: string): void {
     if (!month) return;
@@ -3783,11 +3782,11 @@ export class FinanceShellComponent {
     this.loadInvoiceDetailById(invoice.apiId);
   }
   private loadInvoiceDetailById(invoiceId: string): void {
-    this.invoiceDetailRequestedId.set(invoiceId);
-    this.loadingTarget.set("detail");
     const cardId = this.selectedRecord()?.apiId;
     const accountId = this.activeAccountId();
     if (!cardId || !accountId) return;
+    this.invoiceDetailRequestedId.set(invoiceId);
+    this.loadingTarget.set("detail");
     this.store.loadInvoiceDetail(accountId, cardId, invoiceId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((detail) => {
       if (detail) this.invoiceDetail.set(detail);
     });

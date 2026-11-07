@@ -11,7 +11,8 @@ const seed = () => ({
     { id: 'credit-1', contaBancariaId: 'account-1', apelido: 'Crédito teste', tipoCartao: 'CREDITO', limiteCredito: 2000, diaFechamento: 10, diaVencimento: 20 },
   ],
   budgets: [{ id: 'budget-1', categoria: 'Alimentação', mesReferencia: month, valorLimite: 1200, valorCorrente: 300 }],
-  movements: [], requests: [], failUserDelete: false, failBudgetDelete: false, failDetail: false, detailDelay: 0, staleLists: false,
+  movements: [], invoices: [], requests: [], failUserDelete: false, failBudgetDelete: false, failDetail: false, detailDelay: 0, staleLists: false,
+  invoiceDelay: 0, invoiceDelayByCard: {}, failInvoices: false, failInvoiceDetail: false,
 });
 
 http.createServer(async (req, res) => {
@@ -33,7 +34,19 @@ http.createServer(async (req, res) => {
   if (path === '/auth/me') return method === 'DELETE' ? (state.failUserDelete ? fail(409, 'Existem recursos financeiros vinculados.') : persist({})) : send(200, { id: 'user-1', nomeCompleto: 'Usuário Teste', email: 'teste@example.test' });
   if (path === '/dashboard/periodos-com-historico') return send(200, { periodos: [month] });
   if (path === '/dashboard') return send(200, { mesReferencia: month, contas: state.accounts, metas: state.goals, investimentos: state.investments, orcamentos: state.budgets, ultimosLancamentos: [], proximasFaturas: [] });
-  if (path.endsWith('/faturas') || path.endsWith('/lancamentos')) return send(200, []);
+  const invoiceRoute = path.match(/^\/contas-bancarias\/[^/]+\/cartoes\/([^/]+)\/faturas(?:\/([^/]+))?$/);
+  if (invoiceRoute && method === 'GET') {
+    const [, cardId, invoiceId] = invoiceRoute;
+    const delay = state.invoiceDelayByCard[cardId] ?? state.invoiceDelay;
+    if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+    if (invoiceId ? state.failInvoiceDetail : state.failInvoices) return fail(503, 'Não foi possível consultar as faturas.');
+    const invoices = state.invoices.filter(invoice => invoice.cartaoDeCreditoId === cardId);
+    if (invoiceId) return invoices.some(invoice => invoice.id === invoiceId)
+      ? send(200, invoices.find(invoice => invoice.id === invoiceId))
+      : fail(404, 'Fatura não encontrada.');
+    return send(200, invoices);
+  }
+  if (path.endsWith('/lancamentos')) return send(200, []);
   if (path === '/telegram/vinculo') return send(200, { codigo: 'a'.repeat(64) });
   if (path === '/cartoes/account-1' && method === 'GET') return send(200, state.cards);
   const cardDetail = path.match(/^\/contas-bancarias\/[^/]+\/cartoes\/([^/]+)$/);
