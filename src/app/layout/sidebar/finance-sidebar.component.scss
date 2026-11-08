@@ -1,3 +1,14 @@
 :host { display: contents; }
 .navigation-heading { margin-top: 26px; }
 .active-bank-heading { margin-bottom: 10px; border-left: 3px solid #ed3114; color: #f6f6f8; font: 800 13px/1.25 Inter, sans-serif; letter-spacing: 0; text-transform: none; }
+.nav-group + .nav-group { margin-top: 18px; }
+.nav-group > .sidebar-heading { margin: 0 0 7px; color: #7f8796; font-size: 10px; letter-spacing: .09em; }
+.nav-group .active-bank-heading { margin: 0 0 8px; }
+.nav-group, .nav-row { width: 100%; box-sizing: border-box; }
+.nav-row { display: flex; align-items: center; gap: 3px; }
+.nav-row .nav-item { flex: 1 1 0; width: 0; min-width: 0; box-sizing: border-box; }
+.pin-button { display: grid; place-items: center; flex: 0 0 30px; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 6px; color: #737987; background: transparent; cursor: pointer; opacity: 0; transition: color .15s ease, background .15s ease, opacity .15s ease; }
+.nav-row:hover .pin-button, .pin-button:focus-visible, .pin-button.pinned, .pinned-group .pin-button { opacity: 1; }
+.pin-button:hover, .pin-button.pinned { color: #ed6b37; background: rgba(237, 107, 55, .1); }
+.pin-button .material-symbols-outlined { font-size: 18px; }
+@media (max-width: 900px) { .nav-row .nav-item { flex: 1; } .pin-button { display: none; } }

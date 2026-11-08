@@ -37,6 +37,8 @@ export const FinanceStore = signalStore(
     const loadingSections = new Set<SectionKey>();
     let invoiceRequestKey: string | null = null;
     let invoiceRequestVersion = 0;
+    let allInvoiceRequestKey: string | null = null;
+    let allInvoiceRequestVersion = 0;
     let dashboardLoading = false;
     let dashboardMonthInFlight: string | undefined;
     let pendingDashboardMonth: string | undefined;
@@ -140,9 +142,28 @@ export const FinanceStore = signalStore(
         error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
       });
     };
+    let allBudgetRequestKey: string | null = null;
+    const loadAllBudgets = (categories: { id: string; title: string }[], force = false): boolean => {
+      const requestKey = JSON.stringify(categories.map((category) => category.id));
+      if (!force && allBudgetRequestKey === requestKey) return false;
+      allBudgetRequestKey = requestKey;
+      if (!categories.length) {
+        patchState(store, { sections: { ...store.sections(), budgets: { ...store.sections().budgets, records: [] } }, loading: false, error: null });
+        return true;
+      }
+      patchState(store, { loading: true, error: null });
+      forkJoin(categories.map((category) => api.listBudgets(category.id).pipe(map((items) => ({ category, items })), catchError(() => of({ category, items: [] })))))
+        .pipe(map((groups) => groups.flatMap(({ category, items }) => items.filter((item) => item.id !== undefined && item.valorLimite !== undefined && item.mesReferencia !== undefined).map((item) => {
+          const categoryRecord = store.sections().categories.records.find((record) => record.apiId === category.id);
+          return { id: item.id!, apiId: item.id!, title: category.title, category: "Limite mensal", amount: item.valorLimite!, currentAmount: item.valorCorrente, date: item.mesReferencia!, type: "expense" as const, categoryId: category.id, icon: categoryRecord?.icon, color: categoryRecord?.color } as FinanceRecord;
+        }))))
+        .subscribe({ next: (records) => patchState(store, { sections: { ...store.sections(), budgets: { ...store.sections().budgets, records } }, loading: false, error: null }), error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }) });
+      return true;
+    };
     return {
     loadDashboard,
     loadBudgets,
+    loadAllBudgets,
     loadFromApi(force = false): void { loadSection(store.active(), force); },
     loadSection,
     loadAccountMovements(accountId: string, period: PeriodRequest): void {
@@ -157,6 +178,30 @@ export const FinanceStore = signalStore(
           const statementRecords: FinanceRecord[] = items.filter((item) => item.valorTotal !== undefined && item.dataLancamento !== undefined).map((item, index) => ({ id: item.id ?? `${accountId}-${item.dataLancamento}-${index}`, apiId: item.id, title: item.descricao?.trim() || "Movimentação", category: item.categoriaId ?? "", amount: item.valorTotal!, date: item.dataLancamento!, type: item.valorTotal! >= 0 ? "income" as const : "expense" as const, method: item.metodoPagamento, recurring: item.ehRecorrente, nextRecurrence: item.proximaRecorrencia, installments: item.qntParcelas, notes: item.descricao }));
           const records = store.sections().accounts.records.map((record) => record.apiId === accountId ? { ...record, movements } : record);
           patchState(store, { sections: { ...store.sections(), accounts: { ...store.sections().accounts, records }, statements: { ...store.sections().statements, records: statementRecords } }, loading: false, error: null });
+        },
+        error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
+      });
+    },
+    loadAllAccountMovements(accountIds: string[], period: PeriodRequest): void {
+      const ids = [...new Set(accountIds)];
+      if (!ids.length) { patchState(store, { sections: { ...store.sections(), statements: { ...store.sections().statements, records: [] } }, loading: false, error: null }); return; }
+      patchState(store, { loading: true, error: null });
+      forkJoin(ids.map((accountId) => api.listMovements(accountId, period).pipe(map((items) => ({ accountId, items }))))).subscribe({
+        next: (groups) => {
+          const records: FinanceRecord[] = groups.flatMap(({ accountId, items }) => items.filter((item) => item.valorTotal !== undefined && item.dataLancamento !== undefined).map((item, index) => ({ id: item.id ?? `${accountId}-${item.dataLancamento}-${index}`, apiId: item.id, accountId: item.contaBancariaId ?? accountId, title: item.descricao?.trim() || "MovimentaÃ§Ã£o", category: item.categoriaId ?? "", amount: item.valorTotal!, date: item.dataLancamento!, type: item.valorTotal! >= 0 ? "income" as const : "expense" as const, method: item.metodoPagamento, recurring: item.ehRecorrente, nextRecurrence: item.proximaRecorrencia, installments: item.qntParcelas, notes: item.descricao })));
+          patchState(store, { sections: { ...store.sections(), statements: { ...store.sections().statements, records } }, loading: false, error: null });
+        },
+        error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
+      });
+    },
+    loadAllTransactions(accountIds: string[], period: PeriodRequest): void {
+      const ids = [...new Set(accountIds)];
+      if (!ids.length) { patchState(store, { sections: { ...store.sections(), transactions: { ...store.sections().transactions, records: [] } }, loading: false, error: null }); return; }
+      patchState(store, { loading: true, error: null });
+      forkJoin(ids.map((accountId) => api.listEntries(accountId, period).pipe(map((items) => ({ accountId, items }))))).subscribe({
+        next: (groups) => {
+          const records: FinanceRecord[] = groups.flatMap(({ accountId, items }) => items.filter((item) => item.valor !== undefined && item.dataLancamento !== undefined).map((item, index) => ({ id: item.id ?? `${accountId}-${item.dataLancamento}-${index}`, apiId: item.id, accountId: item.contaBancariaId ?? accountId, title: item.descricao?.trim() || "LanÃ§amento", category: item.categoriaNome ?? "LanÃ§amento", amount: item.valor!, date: item.dataLancamento!, type: item.valor! >= 0 ? "income" as const : "expense" as const, notes: item.descricao, installments: item.totalParcelas })));
+          patchState(store, { sections: { ...store.sections(), transactions: { ...store.sections().transactions, records } }, loading: false, error: null });
         },
         error: (error: unknown) => patchState(store, { loading: false, error: toUserError(error) }),
       });
@@ -228,9 +273,14 @@ export const FinanceStore = signalStore(
         const keys: SectionKey[] = record.cardType ? ["cards", "cardCredit", "cardDebit", "cardVoucher"] : [section];
         const sections = { ...store.sections() };
         for (const key of keys) {
-          const previous = sections[key].records.find((item) => item.id === id);
-          const records = sections[key].records.filter((item) => item.id !== id);
-          if (!record.cardType || key === "cards" || key === ({ CREDITO: "cardCredit", DEBITO: "cardDebit", VOUCHER: "cardVoucher" } as Record<string, string>)[record.cardType]) records.push({ ...previous, ...record });
+          const currentRecords = sections[key].records;
+          const index = currentRecords.findIndex((item) => item.id === id);
+          const belongsInSection = !record.cardType || key === "cards" || key === ({ CREDITO: "cardCredit", DEBITO: "cardDebit", VOUCHER: "cardVoucher" } as Record<string, string>)[record.cardType];
+          const records = belongsInSection
+            ? index >= 0
+              ? currentRecords.map((item, itemIndex) => itemIndex === index ? { ...item, ...record } : item)
+              : [...currentRecords, record]
+            : currentRecords.filter((item) => item.id !== id);
           sections[key] = { ...sections[key], records };
         }
         patchState(store, { sections, error: null });
@@ -260,6 +310,27 @@ export const FinanceStore = signalStore(
           patchState(store, { loading: false, error: toUserError(error) });
         },
       });
+      return true;
+    },
+    loadAllInvoices(cards: { accountId: string; cardId: string }[], period: PeriodRequest, force = false): boolean {
+      const requestKey = JSON.stringify([cards.map((card) => [card.accountId, card.cardId]), period.dataInicial, period.dataFinal]);
+      if (!force && allInvoiceRequestKey === requestKey) return false;
+      allInvoiceRequestKey = requestKey;
+      const requestVersion = ++allInvoiceRequestVersion;
+      if (!cards.length) {
+        patchState(store, { sections: { ...store.sections(), invoices: { ...store.sections().invoices, records: [] } }, loading: false, error: null });
+        return true;
+      }
+      patchState(store, { loading: true, error: null });
+      forkJoin(cards.map((card) => api.listInvoices(card.accountId, card.cardId, period).pipe(catchError(() => of([])))))
+        .pipe(map((groups) => groups.flatMap((items, index) => items.filter((item) => item.id && item.dataReferencia && item.valorTotal !== undefined).map((item) => ({ id: item.id!, apiId: item.id!, title: `Fatura ${formatMonthYear(item.dataReferencia!)}`, category: item.status ?? "", amount: item.valorTotal!, date: item.dataReferencia!, type: "expense" as const, status: item.status, accountId: cards[index].accountId, cardId: cards[index].cardId } as FinanceRecord)))))
+        .subscribe({ next: (records) => {
+          if (requestVersion !== allInvoiceRequestVersion) return;
+          patchState(store, { sections: { ...store.sections(), invoices: { ...store.sections().invoices, records } }, loading: false, error: null });
+        }, error: (error: unknown) => {
+          if (requestVersion !== allInvoiceRequestVersion) return;
+          patchState(store, { loading: false, error: toUserError(error) });
+        } });
       return true;
     },
     loadInvoiceDetail(accountId: string, cardId: string, invoiceId: string): Observable<FinanceRecord | null> {
@@ -425,13 +496,13 @@ export const FinanceStore = signalStore(
     },
     createBudget(categoryId: string, values: BudgetRequest): Observable<boolean> {
       return api.createBudget(categoryId, values).pipe(
-        map(() => { loadBudgets(categoryId); return true; }),
+        map(() => { if (store.active() !== "budgets") loadBudgets(categoryId); return true; }),
         catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(false); }),
       );
     },
     updateBudget(categoryId: string, budgetId: string, values: BudgetRequest): Observable<boolean> {
       return api.updateBudget(categoryId, budgetId, values).pipe(
-        map(() => { loadBudgets(categoryId); patchState(store, { error: null }); return true; }),
+        map(() => { if (store.active() !== "budgets") loadBudgets(categoryId); patchState(store, { error: null }); return true; }),
         catchError((error: unknown) => { patchState(store, { error: toUserError(error) }); return of(false); }),
       );
     },

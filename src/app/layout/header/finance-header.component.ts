@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, signal } from "@angular/core";
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from "@angular/core";
 
 interface AuthUserView {
   nomeCompleto?: string;
@@ -27,36 +27,14 @@ export class FinanceHeaderComponent {
   @Input() userMenuOpen = false;
   @Input() accounts: BankAccountOption[] = [];
   @Input() totalBalance = 0;
-  @Input() activeAccountId = "";
-  @Input() createDisabled = false;
-  readonly accountPickerOpen = signal(false);
   @Output() readonly create = new EventEmitter<void>();
-  @Output() readonly accountPickerOpened = new EventEmitter<void>();
-  @Output() readonly accountChange = new EventEmitter<string>();
   @Output() readonly toggleMenu = new EventEmitter<void>();
   @Output() readonly logout = new EventEmitter<void>();
   @Output() readonly deleteUser = new EventEmitter<void>();
 
-  activeAccountTitle(): string {
-    return this.accounts.find((account) => account.id === this.activeAccountId)?.title ?? "Selecionar conta";
-  }
-
-  activeAccount(): BankAccountOption | null {
-    return this.accounts.find((account) => account.id === this.activeAccountId) ?? null;
-  }
-
   money(value: number | undefined): string {
     return value === undefined ? "—" : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
   }
-
-  toggleAccountPicker(): void {
-    const opening = !this.accountPickerOpen();
-    this.accountPickerOpen.set(opening);
-    if (opening) this.accountPickerOpened.emit();
-  }
-
-  selectAccount(accountId: string): void {
-    this.accountPickerOpen.set(false);
-    this.accountChange.emit(accountId);
-  }
+  totalCredit(): number { return this.accounts.reduce((total, account) => total + (account.creditTotal ?? 0), 0); }
+  totalCreditRemaining(): number { return this.accounts.reduce((total, account) => total + (account.creditRemaining ?? 0), 0); }
 }

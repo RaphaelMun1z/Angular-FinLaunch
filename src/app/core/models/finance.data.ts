@@ -22,8 +22,9 @@ export const sections: Record<SectionKey, SectionData> = {
 export const navigation: NavItem[] = [
   { key: "overview", label: "Visão geral", icon: "dashboard" },
   { key: "accounts", label: "Contas bancárias", icon: "account_balance" },
+  { key: "invoices", label: "Faturas", icon: "receipt_long" },
   { key: "cards", label: "Cartões", icon: "credit_card", children: [
-    { key: "cardCredit", label: "Crédito", icon: "credit_score", children: [{ key: "invoices", label: "Faturas", icon: "description" }] },
+    { key: "cardCredit", label: "Crédito", icon: "credit_score" },
     { key: "cardDebit", label: "Débito", icon: "payments" },
     { key: "cardVoucher", label: "Voucher", icon: "confirmation_number" },
   ] },

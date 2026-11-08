@@ -10,6 +10,7 @@ import { NavItem } from "../../core/models/finance.models";
 })
 export class FinanceSidebarComponent {
   readonly expandedItems = signal<Record<string, boolean>>({ cards: true, cardCredit: true });
+  readonly pinnedKeys = signal<string[]>(this.readPinnedKeys());
   @Input() navigation: NavItem[] = [];
   @Input() activeKey = "";
   @Input() transactionsCount = 0;
@@ -18,10 +19,27 @@ export class FinanceSidebarComponent {
   @Input() activeAccountTitle = "";
   @Output() readonly navigate = new EventEmitter<NavItem>();
   isActive(item: NavItem): boolean { return this.activeKey === item.key || item.children?.some((child) => this.isActive(child)) === true; }
-  overviewItem(): NavItem | undefined { return this.navigation.find((item) => item.key === "overview"); }
-  accountItem(): NavItem | undefined { return this.navigation.find((item) => item.key === "accounts"); }
-  independentItems(): NavItem[] { return this.navigation.filter((item) => item.key === "categories" || item.key === "goals"); }
-  otherItems(): NavItem[] { return this.navigation.filter((item) => !["overview", "accounts", "categories", "goals"].includes(item.key)); }
+  private readPinnedKeys(): string[] {
+    if (typeof localStorage === "undefined") return [];
+    try { return JSON.parse(localStorage.getItem("finance-pinned-pages") ?? "[]") as string[]; }
+    catch { return []; }
+  }
+  isPinned(item: NavItem): boolean { return this.pinnedKeys().includes(item.key); }
+  togglePinned(item: NavItem, event: MouseEvent): void {
+    event.stopPropagation();
+    this.pinnedKeys.update((keys) => {
+      const next = keys.includes(item.key) ? keys.filter((key) => key !== item.key) : [...keys, item.key];
+      if (typeof localStorage !== "undefined") localStorage.setItem("finance-pinned-pages", JSON.stringify(next));
+      return next;
+    });
+  }
+  navigateItem(item: NavItem): void { this.navigate.emit(item); }
+  pinnedItems(): NavItem[] { return this.navigation.filter((item) => this.isPinned(item)); }
+  itemsFor(...keys: string[]): NavItem[] { return keys.map((key) => this.navigation.find((item) => item.key === key)).filter((item): item is NavItem => !!item && !this.isPinned(item)); }
+  overviewItems(): NavItem[] { return this.itemsFor("overview", "transactions", "statements"); }
+  bankingItems(): NavItem[] { return this.itemsFor("accounts", "cards", "invoices"); }
+  planningItems(): NavItem[] { return this.itemsFor("budgets", "categories", "investments", "goals"); }
+  integrationItems(): NavItem[] { return this.itemsFor("telegram"); }
   isExpanded(item: NavItem): boolean { return this.expandedItems()[item.key] !== false; }
   toggleNested(item: NavItem): void {
     this.expandedItems.update((items) => ({ ...items, [item.key]: !this.isExpanded(item) }));

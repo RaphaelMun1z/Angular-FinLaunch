@@ -418,6 +418,10 @@ svg {
 	background: #ffede8;
 	color: #e94d30;
 }
+.record-icon.has-bank-logo { border: 0; background: transparent; }
+.record-icon.has-bank-logo.income { border: 0; background: transparent; }
+.dash-tx-icon.has-bank-logo { border: 0; background: transparent; }
+.record-icon .bank-logo, .dash-tx-icon .bank-logo { width: 100%; height: 100%; padding: 6px; border: 0; background: transparent; object-fit: contain; }
 .record-icon.income {
 	background: #e5f7ef;
 	color: #18a173;
@@ -1383,6 +1387,8 @@ svg {
 	color: #b5b5bf;
 	white-space: nowrap;
 }
+.dashboard-bank-filter{display:flex;align-items:center;gap:12px;margin:-10px 0 20px;color:#aeb0bb;font:800 9px Inter,sans-serif;letter-spacing:.08em}
+.dashboard-bank-filter select{min-width:180px;padding:9px 11px;border:1px solid #454650;border-radius:7px;background:#292b33;color:#f6f6f8;font:600 11px Inter,sans-serif}
 .dashboard-highlight {
 	padding: 23px 23px 21px;
 	border-radius: 13px;
@@ -2940,7 +2946,8 @@ app-monthly-line-chart {
 .list-panel.accounts-mode .record-main>span:not(.record-title-line),.list-panel.accounts-mode .record-end{display:none}
 .list-panel.cards-mode .record-end{display:none}
 .list-panel.cards-mode .record-main>span:not(.record-title-line) b{display:none}
-.list-panel.cards-mode .record-icon{align-self:center;justify-self:center;display:grid;place-items:center;line-height:1}
+.list-panel.cards-mode .record-icon{align-self:center;justify-self:center;display:grid;place-items:center;line-height:1;width:36px;height:36px;border:1px solid #51423f;border-radius:8px;background:#29272a;color:#d87966;font-size:18px}
+.list-panel.cards-mode .record-bank-logo{display:block;flex:0 0 24px;width:24px;height:24px;object-fit:contain;border:0;background:transparent}
 .list-panel.cards-mode .record-main{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px}
 .list-panel.cards-mode .record-main .record-title-line{grid-column:1;grid-row:1;min-width:0}
 .list-panel.cards-mode .record-main>span:not(.record-title-line){grid-column:2;grid-row:1;margin-top:0;text-align:right}
@@ -3004,3 +3011,25 @@ app-monthly-line-chart {
 .category-type-fieldset,.category-color-fieldset{min-width:0;margin:0;padding:0;border:0}.category-type-fieldset legend,.category-color-fieldset legend{margin-bottom:8px;color:#b9bbc4;font-size:12px;font-weight:700;letter-spacing:.04em}.category-type-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.category-type-option{position:relative;display:flex!important;flex-direction:row!important;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 14px;border:1px solid #454650;border-radius:10px;background:#22242b;color:#9da0ab!important;cursor:pointer;transition:background .18s ease,border-color .18s ease,color .18s ease}.category-type-option input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.category-type-option .material-symbols-outlined{font-size:19px}.category-type-option.selected{border-color:#ed3114;background:rgb(237 49 20 / 12%);color:#fff!important}.category-type-option:hover{border-color:#777a87;color:#f6f6f8!important}.category-color-palette{display:flex;flex-wrap:wrap;gap:12px;min-height:48px;align-items:center}.category-color-option{width:30px;height:30px;padding:0;border:2px solid transparent;border-radius:50%;box-shadow:0 0 0 1px #454650;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease}.category-color-option:hover{transform:scale(1.1)}.category-color-option.selected{box-shadow:0 0 0 2px #17191e,0 0 0 4px #f6f6f8;transform:scale(1.08)}
 .category-form-panel{min-height:100%;box-sizing:border-box;padding:42px 48px 110px;background:#17191e;color:#f6f6f8}.category-form-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:34px}.category-form-heading h2{margin:7px 0 8px;font-size:30px;letter-spacing:-.03em}.category-form-heading p{margin:0;color:#9da0ab;font-size:14px}.detail-kicker{color:#ed6a50;font-size:11px;font-weight:700;letter-spacing:.14em}.category-form-close{display:grid;place-items:center;width:38px;height:38px;padding:0;border:1px solid #454650;border-radius:10px;background:transparent;color:#c9cbd2;cursor:pointer}.category-form-close:hover{background:#292b33;color:#fff}.category-form{display:flex;flex-direction:column;gap:20px;max-width:720px}.category-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.category-form label{display:flex;flex-direction:column;gap:8px;color:#b9bbc4;font-size:12px;font-weight:700;letter-spacing:.04em}.category-form input,.category-form select{width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #454650;border-radius:10px;background:#22242b;color:#f6f6f8;font:inherit;font-size:14px;font-weight:500;letter-spacing:0;outline:none}.category-form input:focus,.category-form select:focus{border-color:#ed3114;box-shadow:0 0 0 3px rgb(237 49 20 / 15%)}.category-form input::placeholder{color:#6f727d}.category-icon-preview{display:flex;align-items:center;gap:12px;color:#858995;font-size:12px}.category-icon-preview .material-symbols-outlined{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:#292b33;color:#ed6a50;font-size:22px}.field-error,.form-error{font-size:12px}.field-error{color:#ff8b73}.form-error{padding:12px 14px;border:1px solid rgb(237 49 20 / 45%);border-radius:10px;background:rgb(237 49 20 / 10%);color:#ff9d8a}.category-form-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:8px}.category-form-actions .primary-btn{display:inline-flex;align-items:center;gap:8px}.category-form-actions .primary-btn .material-symbols-outlined{font-size:18px}@media(max-width:700px){.category-form-panel{padding:28px 22px 100px}.category-form-grid{grid-template-columns:1fr}.category-form-heading h2{font-size:25px}}
  .statement-search-options{display:flex;flex-direction:column;gap:10px;margin-top:24px}.statement-search-options .statement-search-card{margin-top:0}
+
+.statement-period-form select{box-sizing:border-box;width:100%;min-height:43px;padding:12px 13px;border:1px solid #454650;border-radius:9px;background:#22242b;color:#f6f6f8;font:inherit;font-size:13px;outline:none;color-scheme:dark}.statement-period-form select:focus{border-color:#ed3114;box-shadow:0 0 0 3px rgb(237 49 20 / 15%)}
+
+.bank-list-logo{display:block;flex:0 0 24px;width:24px;height:24px;border:0;background:transparent;object-fit:contain}
+
+.content.overview-layout { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr); }
+.content.overview-layout > .list-panel { display:none; }
+.content.overview-layout > .detail-panel { grid-column:1; grid-row:1; height:100%; min-height:0; overflow-y:auto; padding:0; }
+.detail-panel.overview-dashboard-panel { display:block; }
+.overview-dashboard-panel > .dashboard { min-height:100%; box-sizing:border-box; padding:34px clamp(20px,4vw,54px) 54px; overflow:visible; }
+.overview-dashboard-panel .dashboard-metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:14px 0 20px; }
+.overview-dashboard-panel .dashboard-metrics .dash-metric { min-width:0; }
+.overview-dashboard-panel .overview-invoices,
+.overview-dashboard-panel .overview-budgets,
+.overview-dashboard-panel .overview-movements,
+.overview-dashboard-panel .overview-accounts,
+.overview-dashboard-panel .overview-entries,
+.overview-dashboard-panel .overview-investments,
+.overview-dashboard-panel .overview-goals { display:block !important; }
+.dashboard-period-control { display:grid; gap:6px; min-width:170px; color:#aeb0bb; font:800 9px Inter,sans-serif; letter-spacing:.08em; }
+.dashboard-period-control select { min-height:38px; padding:0 12px; border:1px solid #454650; border-radius:8px; background:#292b33; color:#f6f6f8; font:600 12px Inter,sans-serif; color-scheme:dark; }
+@media(max-width:700px) { .overview-dashboard-panel > .dashboard { padding:24px 18px 36px; } .dashboard-header { align-items:center; } .dashboard-period-control { min-width:135px; } }

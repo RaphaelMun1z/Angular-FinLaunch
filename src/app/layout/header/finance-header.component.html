@@ -3,33 +3,15 @@
   @if (accounts.length) {
     <div class="active-account-summary" aria-label="Resumo geral das contas bancárias">
       <div><span>Saldo atual geral</span><strong>{{ money(totalBalance) }}</strong></div>
-      @if (activeAccount(); as account) {
-        @if (account.creditTotal !== undefined) { <div><span>Crédito total</span><strong>{{ money(account.creditTotal) }}</strong></div> }
-        @if (account.creditRemaining !== undefined) { <div><span>Crédito disponível</span><strong>{{ money(account.creditRemaining) }}</strong></div> }
-      }
+      <div><span>CrÃ©dito total</span><strong>{{ money(totalCredit()) }}</strong></div>
+      <div><span>CrÃ©dito disponÃ­vel</span><strong>{{ money(totalCreditRemaining()) }}</strong></div>
     </div>
   }
   <div class="topbar-actions">
     <div class="topbar-context-actions">
       <span class="current-period">{{ period }}</span>
-      <button class="create-btn header-create-btn" type="button" [disabled]="createDisabled" [attr.title]="createDisabled ? 'Selecione uma conta bancária' : null" (click)="create.emit()"><span class="material-symbols-outlined">add</span>NOVA MOVIMENTAÇÃO</button>
-      <div class="active-account-picker">
-        <button class="active-account-trigger" type="button" aria-label="Selecionar conta bancária ativa" [attr.aria-expanded]="accountPickerOpen()" (click)="toggleAccountPicker()">
-          <span class="account-option-icon material-symbols-outlined">account_balance</span><span class="active-account-label">{{ activeAccountTitle() }}</span><span class="material-symbols-outlined active-account-chevron">{{ accountPickerOpen() ? "expand_less" : "expand_more" }}</span>
-        </button>
-        @if (accountPickerOpen()) {
-          <div class="active-account-options" role="listbox" aria-label="Contas bancárias disponíveis">
-            @if (accounts.length) {
-              <button type="button" class="active-account-option no-account-option" [class.selected]="!activeAccountId" (click)="selectAccount('')"><span class="account-option-icon material-symbols-outlined">remove_circle_outline</span><span class="active-account-option-copy"><strong>Nenhuma</strong></span></button>
-              @for (account of accounts; track account.id) {
-                <button type="button" class="active-account-option" [class.selected]="account.id === activeAccountId" (click)="selectAccount(account.id)"><span class="account-option-icon material-symbols-outlined">account_balance</span><span class="active-account-option-copy"><strong>{{ account.title }}</strong><small>Conta bancária</small></span><span class="material-symbols-outlined account-option-check">{{ account.id === activeAccountId ? "check" : "" }}</span></button>
-              }
-            } @else {
-              <span class="active-account-empty">Nenhuma conta cadastrada.</span>
-            }
-          </div>
-        }
-      </div>
+      <button class="create-btn header-create-btn" type="button" (click)="create.emit()"><span class="material-symbols-outlined">add</span>NOVA MOVIMENTAÇÃO</button>
+    
     </div>
     <div class="user-menu" [class.open]="userMenuOpen" (click)="$event.stopPropagation()">
       <button class="avatar" type="button" aria-label="Abrir menu do usuário" [attr.aria-expanded]="userMenuOpen" (click)="toggleMenu.emit()">{{ initials }}</button>
