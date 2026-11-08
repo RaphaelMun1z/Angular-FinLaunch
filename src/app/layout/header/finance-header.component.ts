@@ -26,6 +26,7 @@ export class FinanceHeaderComponent {
   @Input() initials = "US";
   @Input() userMenuOpen = false;
   @Input() accounts: BankAccountOption[] = [];
+  @Input() totalBalance = 0;
   @Input() activeAccountId = "";
   @Input() createDisabled = false;
   readonly accountPickerOpen = signal(false);

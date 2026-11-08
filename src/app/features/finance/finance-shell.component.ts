@@ -90,6 +90,7 @@ import { map } from "rxjs/operators";
         [initials]="userInitials()"
         [userMenuOpen]="userMenuOpen()"
         [accounts]="movementAccounts()"
+        [totalBalance]="totalAccountsBalance()"
         [activeAccountId]="activeAccountId() || ''"
         [createDisabled]="activeAccountId() === null"
         (create)="openMovementAside()"
@@ -2208,6 +2209,11 @@ import { map } from "rxjs/operators";
                 </div>
                 <div class="dash-section overview-accounts">
                   <div class="dash-title">CONTAS BANCÁRIAS</div>
+                  <div class="dashboard-highlight dashboard-accounts-total">
+                    <span>SALDO ATUAL GERAL</span>
+                    <strong>{{ money(dashboardCurrentBalance()) }}</strong>
+                    <span class="dashboard-balance-note">SOMA DOS SALDOS DE TODAS AS CONTAS</span>
+                  </div>
                   @for (account of dashboardAccounts(); track account.id) {
                     <div class="dash-transaction">
                       <span class="dash-tx-icon"><span class="material-symbols-outlined">account_balance</span></span>
@@ -2803,6 +2809,7 @@ export class FinanceShellComponent {
   readonly movementAccounts = computed(() =>
     this.store.sections().accounts.records.filter((record) => record.apiId),
   );
+  readonly totalAccountsBalance = computed(() => this.movementAccounts().reduce((total, account) => total + (account.balance ?? 0), 0));
   readonly activeAccountId = this.store.activeAccountId;
   readonly activeAccount = computed(
     () =>
@@ -3206,6 +3213,7 @@ export class FinanceShellComponent {
   });
   readonly dashboardInvoiceSummary = computed(() => this.dashboardData()?.faturas ?? {});
   readonly dashboardAccounts = computed(() => this.dashboardData()?.contas ?? []);
+  readonly dashboardCurrentBalance = computed(() => this.dashboardAccounts().reduce((total, account) => total + (account.saldoCorrente ?? 0), 0));
   readonly dashboardAccountSnapshots = computed(() => this.dashboardData()?.contasNoMes ?? []);
   readonly dashboardAllEntries = computed(() => this.dashboardData()?.ultimosLancamentos ?? []);
   readonly dashboardEntries = computed(() => this.dashboardAllEntries().filter((entry) => !entry.faturaId));
@@ -3456,17 +3464,6 @@ export class FinanceShellComponent {
     if (this.cardFormOpen()) this.closeCardForm();
     if (this.goalFormOpen()) this.closeGoalForm();
     this.closeBudgetForm();
-    if (this.active() === "cards") {
-      const card = this.store.sections().cards.records.find((record) => record.id === id);
-      const cardSection = card?.cardType === "CREDITO"
-        ? "cardCredit"
-        : card?.cardType === "DEBITO"
-          ? "cardDebit"
-          : card?.cardType === "VOUCHER"
-            ? "cardVoucher"
-            : null;
-      if (cardSection) this.store.navigate(cardSection);
-    }
     const previousId = this.store.selectedId();
     if (previousId === id) this.refreshSelectedDetail();
     this.invoiceDetail.set(null);
@@ -3481,7 +3478,7 @@ export class FinanceShellComponent {
     if (record?.apiId && this.active() === "cardCredit") {
       this.updateCardUrl(record.apiId, this.store.cardTab());
     }
-    if (record?.apiId && this.active() !== "cardCredit" && this.active() !== "overview") {
+    if (record?.apiId && this.active() !== "cards" && this.active() !== "cardCredit" && this.active() !== "overview") {
       this.updateRecordUrl(record.apiId);
     }
     if (record?.apiId && this.active() === "categories") {

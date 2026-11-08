@@ -1,10 +1,12 @@
 <header class="topbar">
   <a class="brand" href="/" aria-label="FinLaunch - início"><img class="brand-logo" src="assets/finlaunch_logo.png" alt="FinLaunch" /></a>
-  @if (activeAccount(); as account) {
-    <div class="active-account-summary" aria-label="Resumo da conta bancária ativa">
-      <div><span>Saldo</span><strong>{{ money(account.balance) }}</strong></div>
-      @if (account.creditTotal !== undefined) { <div><span>Crédito total</span><strong>{{ money(account.creditTotal) }}</strong></div> }
-      @if (account.creditRemaining !== undefined) { <div><span>Crédito disponível</span><strong>{{ money(account.creditRemaining) }}</strong></div> }
+  @if (accounts.length) {
+    <div class="active-account-summary" aria-label="Resumo geral das contas bancárias">
+      <div><span>Saldo atual geral</span><strong>{{ money(totalBalance) }}</strong></div>
+      @if (activeAccount(); as account) {
+        @if (account.creditTotal !== undefined) { <div><span>Crédito total</span><strong>{{ money(account.creditTotal) }}</strong></div> }
+        @if (account.creditRemaining !== undefined) { <div><span>Crédito disponível</span><strong>{{ money(account.creditRemaining) }}</strong></div> }
+      }
     </div>
   }
   <div class="topbar-actions">
