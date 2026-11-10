@@ -64,12 +64,18 @@
 .statement-edit-form input:focus { border-color:#ed3114; }
 .statement-edit-actions { position:static; padding-top:18px; border-top:1px solid #303238; background:transparent; }
 .dedicated-invoice-filters { display:flex; align-items:end; flex-wrap:wrap; gap:12px; margin:0 0 24px; padding:16px; border:1px solid #303238; border-radius:10px; background:#1d1f25; }
-.dedicated-invoice-filters > label { display:grid; gap:7px; color:#b9bbc4; font-size:10px; font-weight:700; }
-.dedicated-invoice-filters input { min-height:38px; box-sizing:border-box; padding:9px 12px; border:1px solid #454650; border-radius:8px; background:#22242b; color:#f6f6f8; color-scheme:dark; font:inherit; }
+.dedicated-invoice-filters > label { display:grid; flex:0 1 140px; gap:7px; color:#b9bbc4; font-size:11px; font-weight:700; }
+.dedicated-invoice-filters input { width:100%; min-height:40px; box-sizing:border-box; padding:9px 12px; border:1px solid #454650; border-radius:8px; background:#22242b; color:#f6f6f8; color-scheme:dark; font:600 12px Inter,sans-serif; }
 .dedicated-invoice-filters input:focus { border-color:#ed3114; outline:2px solid rgb(237 49 20 / 15%); }
-.dedicated-invoice-filters .invoice-period-presets { display:flex; flex-wrap:wrap; gap:6px; }
-.dedicated-invoice-filters .invoice-period-presets button { padding:8px 10px; border:1px solid #41434d; border-radius:7px; background:#22242b; color:#c9cbd2; cursor:pointer; }
+.dedicated-invoice-filters .invoice-period-presets { display:flex; flex:1 1 100%; flex-wrap:wrap; gap:7px; }
+.dedicated-invoice-filters .invoice-period-presets button { min-height:38px; padding:0 12px; border:1px solid #41434d; border-radius:7px; background:#22242b; color:#c9cbd2; font:600 12px Inter,sans-serif; cursor:pointer; transition:border-color .18s,color .18s,background .18s; }
 .dedicated-invoice-filters .invoice-period-presets button:hover { border-color:#ed3114; color:#ff8b73; }
+.dedicated-invoice-filters .invoice-search-button { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:40px; margin:0; padding:0 14px; border:0; border-radius:8px; background:#ed3114; color:#fff; font:800 11px Inter,sans-serif; letter-spacing:.2px; cursor:pointer; transition:background .18s,transform .18s; }
+.dedicated-invoice-filters .invoice-search-button:hover { background:#ff4d2e; transform:translateY(-1px); }
+.dedicated-invoice-filters .invoice-search-button .material-symbols-outlined { font-size:17px; }
+.list-panel:has(.dedicated-invoice-filters) .list-heading { margin-bottom:14px; }
+.list-panel:has(.dedicated-invoice-filters) .dedicated-invoice-filters { margin-bottom:16px; }
+.list-panel:has(.dedicated-invoice-filters) .list-tools { margin-top:0; }
 @media(max-width:700px) { .dedicated-invoice-filters { align-items:stretch; flex-direction:column; } .dedicated-invoice-filters > label, .dedicated-invoice-filters .invoice-period-presets, .dedicated-invoice-filters .invoice-search-button { width:100%; box-sizing:border-box; } }
 .budget-month-heading { display:flex; flex:0 0 100%; align-items:center; justify-content:space-between; gap:12px; margin:14px 0 2px; padding:0 10px 7px; border-bottom:1px solid #303238; color:#ff8b73; }
 .budget-month-heading h3 { margin:0; font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:capitalize; }
@@ -238,6 +244,24 @@
 .movement-payment-trigger.has-value { color: #f6f6f8; }
 .movement-payment-trigger > span:nth-child(2) { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .movement-payment-trigger .material-symbols-outlined { font-size: 19px; }
+.movement-account-field { position:relative; z-index:1; display:flex; flex-direction:column; gap:8px; }
+.movement-account-field.popup-open { z-index:100; }
+.movement-account-trigger { display:flex; align-items:center; gap:10px; width:100%; min-height:47px; box-sizing:border-box; padding:6px 12px; border:1px solid #454650; border-radius:10px; background:#22242b; color:#777b87; font:500 14px Inter,sans-serif; text-align:left; cursor:pointer; }
+.movement-account-trigger.has-value { color:#f6f6f8; }
+.movement-account-trigger strong { overflow:hidden; flex:1; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+.movement-account-placeholder { flex:1; }
+.movement-account-chevron { margin-left:auto; color:#aeb0bb; font-size:19px; }
+.movement-account-logo,.movement-account-icon { display:grid; place-items:center; flex:0 0 34px; width:34px; height:34px; box-sizing:border-box; border-radius:9px; object-fit:contain; background:#fff; }
+.movement-account-icon { padding:7px; background:#343640; color:#c9cbd2; font-size:19px; }
+.movement-account-picker { position:absolute; top:calc(100% + 6px); right:0; left:0; z-index:101; display:flex; flex-direction:column; gap:5px; max-height:270px; padding:7px; overflow-y:auto; border:1px solid #454650; border-radius:12px; background:#22242b; box-shadow:0 16px 32px rgb(0 0 0 / 35%); }
+.movement-account-option { display:flex; align-items:center; gap:10px; width:100%; min-width:0; padding:8px; border:1px solid transparent; border-radius:9px; background:transparent; color:#f6f6f8; text-align:left; cursor:pointer; }
+.movement-account-option:hover,.movement-account-option.selected { border-color:#454650; background:#292b33; }
+.movement-account-copy { display:flex; min-width:0; flex:1; flex-direction:column; gap:3px; }
+.movement-account-copy strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+.movement-account-copy small { color:#9295a1; font-size:10px; }
+.movement-account-check { color:#ff6745; font-size:18px; }
+.movement-payment-trigger:disabled { color:#737783; cursor:not-allowed; opacity:.7; }
+.movement-payment-trigger:disabled .material-symbols-outlined { color:#737783; }
 .movement-payment-picker { position: absolute; top: calc(100% + 6px); right: 0; left: 0; z-index: 4; display: flex; flex-direction: column; gap: 6px; max-height: 270px; padding: 8px; overflow-y: auto; border: 1px solid #454650; border-radius: 12px; background: #22242b; box-shadow: 0 16px 32px rgb(0 0 0 / 35%); }
 .movement-payment-card { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #f6f6f8; font: inherit; text-align: left; cursor: pointer; }
 .movement-payment-card:hover, .movement-payment-card.selected { border-color: #454650; background: #292b33; }

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from "@angular/core";
+import { bankLogoForName } from "../../shared/utils/bank-logo";
 
 interface AuthUserView {
   nomeCompleto?: string;
@@ -21,12 +22,14 @@ interface BankAccountOption {
   styleUrl: "./finance-header.component.scss",
 })
 export class FinanceHeaderComponent {
+  readonly bankLogoForName = bankLogoForName;
   @Input() user: AuthUserView | null = null;
   @Input() period = "";
   @Input() initials = "US";
   @Input() userMenuOpen = false;
   @Input() accounts: BankAccountOption[] = [];
   @Input() totalBalance = 0;
+  balancesOpen = false;
   @Output() readonly create = new EventEmitter<void>();
   @Output() readonly toggleMenu = new EventEmitter<void>();
   @Output() readonly logout = new EventEmitter<void>();
@@ -37,4 +40,5 @@ export class FinanceHeaderComponent {
   }
   totalCredit(): number { return this.accounts.reduce((total, account) => total + (account.creditTotal ?? 0), 0); }
   totalCreditRemaining(): number { return this.accounts.reduce((total, account) => total + (account.creditRemaining ?? 0), 0); }
+  toggleBalances(): void { this.balancesOpen = !this.balancesOpen; }
 }

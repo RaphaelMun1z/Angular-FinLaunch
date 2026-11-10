@@ -58,6 +58,7 @@ import {
 	movementDateValidator,
 } from "../../shared/validators/movement.validators";
 import { toUserError } from "../../core/http/http-error.util";
+import { NotificationService } from "../../core/notifications/notification.service";
 import { bankLogoForName } from "../../shared/utils/bank-logo";
 import { forkJoin, of } from "rxjs";
 import { catchError, map, switchMap } from "rxjs/operators";
@@ -1753,26 +1754,26 @@ import { catchError, map, switchMap } from "rxjs/operators";
 												</option>
 											</select></label
 										>
-										<label
-											>Conta bancária *<select
-												formControlName="accountId"
-												[disabled]="!!cardEditingId()"
-											>
-												<option value="">
-													Selecione uma conta
-												</option>
-												@for (
-													account of movementAccounts();
-													track account.apiId
-												) {
-													<option
-														[value]="account.apiId"
-													>
-														{{ account.title }}
-													</option>
-												}
-											</select></label
-										>
+                                        <label
+                                            >Conta bancária *<select
+                                                formControlName="accountId"
+                                                [disabled]="!!cardEditingId()"
+                                            >
+                                                <option value="">
+                                                    Selecione uma conta
+                                                </option>
+                                                @for (
+                                                    account of movementAccounts();
+                                                    track account.apiId
+                                                ) {
+                                                    <option
+                                                        [value]="account.apiId"
+                                                    >
+                                                        {{ account.title }}
+                                                    </option>
+                                                }
+                                            </select></label
+                                        >
 									</div>
 									@if (
 										cardForm.controls.type.value ===
@@ -4476,6 +4477,99 @@ import { catchError, map, switchMap } from "rxjs/operators";
 					[formGroup]="movementForm"
 					(ngSubmit)="saveMovement()"
 				>
+					<div
+						class="movement-account-field"
+						[class.popup-open]="movementAccountPickerOpen()"
+					>
+						<span class="movement-field-label">Conta bancária *</span>
+						<button
+							type="button"
+							class="movement-account-trigger"
+							[class.has-value]="selectedMovementAccount()"
+							[attr.aria-expanded]="movementAccountPickerOpen()"
+							aria-haspopup="listbox"
+							(click)="toggleMovementAccountPicker()"
+						>
+							@if (selectedMovementAccount(); as account) {
+								@if (bankLogoForName(account.title); as logo) {
+									<img
+										class="movement-account-logo"
+										[src]="logo"
+										alt=""
+									/>
+								} @else {
+									<span
+										class="movement-account-icon material-symbols-outlined"
+										>account_balance</span
+									>
+								}
+								<strong>{{ account.title }}</strong>
+							} @else {
+								<span class="movement-account-placeholder"
+									>Selecione um banco</span
+								>
+							}
+							<span
+								class="material-symbols-outlined movement-account-chevron"
+								>expand_more</span
+							>
+						</button>
+						@if (movementAccountPickerOpen()) {
+							<div
+								class="movement-account-picker"
+								role="listbox"
+								aria-label="Bancos disponíveis"
+							>
+								@for (
+									account of movementAccounts();
+									track account.apiId
+								) {
+									<button
+										type="button"
+										class="movement-account-option"
+										[class.selected]="
+											movementForm.controls.accountId.value ===
+											account.apiId
+										"
+										role="option"
+										[attr.aria-selected]="
+											movementForm.controls.accountId.value ===
+											account.apiId
+										"
+										(click)="
+											selectMovementAccount(account.apiId)
+										"
+									>
+										@if (bankLogoForName(account.title); as logo) {
+											<img
+												class="movement-account-logo"
+												[src]="logo"
+												alt=""
+											/>
+										} @else {
+											<span
+												class="movement-account-icon material-symbols-outlined"
+												>account_balance</span
+											>
+										}
+										<span class="movement-account-copy"
+											><strong>{{ account.title }}</strong
+											><small>Conta bancária</small></span
+										>
+										@if (
+											movementForm.controls.accountId.value ===
+											account.apiId
+										) {
+											<span
+												class="material-symbols-outlined movement-account-check"
+												>check</span
+											>
+										}
+									</button>
+								}
+							</div>
+						}
+					</div>
 					<div class="movement-type-options">
 						<label
 							[class.selected]="
@@ -4485,6 +4579,7 @@ import { catchError, map, switchMap } from "rxjs/operators";
 								type="radio"
 								formControlName="type"
 								value="ENTRADA"
+								(change)="onMovementTypeChange()"
 							/><span class="material-symbols-outlined"
 								>arrow_upward</span
 							>Entrada</label
@@ -4496,6 +4591,7 @@ import { catchError, map, switchMap } from "rxjs/operators";
 								type="radio"
 								formControlName="type"
 								value="SAIDA"
+								(change)="onMovementTypeChange()"
 							/><span class="material-symbols-outlined"
 								>arrow_downward</span
 							>Saída</label
@@ -4509,22 +4605,7 @@ import { catchError, map, switchMap } from "rxjs/operators";
 							inputmode="decimal"
 							placeholder="R$ 0,00"
 					/></label>
-					<label
-						>Conta bancária *<select
-							formControlName="accountId"
-							(change)="movementForm.controls.cardId.setValue('')"
-						>
-							<option value="">Selecione um banco</option>
-							@for (
-								account of movementAccounts();
-								track account.apiId
-							) {
-								<option [value]="account.apiId">
-									{{ account.title }}
-								</option>
-							}
-						</select></label
-					>
+					@if (movementForm.controls.type.value) {
 					<div
 						class="movement-category-field"
 						[class.popup-open]="categoryPickerOpen()"
@@ -4695,6 +4776,11 @@ import { catchError, map, switchMap } from "rxjs/operators";
 							</div>
 						}
 					</div>
+					}
+					@if (
+						movementForm.controls.accountId.value &&
+						movementForm.controls.type.value
+					) {
 					<div
 						class="movement-payment-field"
 						[class.popup-open]="paymentPickerOpen()"
@@ -4735,7 +4821,7 @@ import { catchError, map, switchMap } from "rxjs/operators";
 								>
 									<span class="material-symbols-outlined"
 										>payments</span
-									><span>Selecione uma forma</span
+										><span>Selecione uma forma</span
 									><span
 										class="material-symbols-outlined movement-category-chevron"
 										>expand_more</span
@@ -4750,7 +4836,7 @@ import { catchError, map, switchMap } from "rxjs/operators";
 								aria-label="Formas de pagamento disponíveis"
 							>
 								@for (
-									payment of movementPaymentMethods;
+									payment of movementAvailablePaymentMethods();
 									track payment.value
 								) {
 									<button
@@ -4780,10 +4866,15 @@ import { catchError, map, switchMap } from "rxjs/operators";
 											>check</span
 										>
 									</button>
+								} @empty {
+									<div class="movement-category-empty">
+										Nenhuma forma compatível com esta conta e tipo.
+									</div>
 								}
 							</div>
 						}
 					</div>
+					}
 					<div class="movement-card-row">
 						@if (
 							movementForm.controls.method.value ===
@@ -5132,6 +5223,7 @@ export class FinanceShellComponent {
 	readonly route = inject(ActivatedRoute);
 	readonly destroyRef = inject(DestroyRef);
 	readonly fb = inject(FormBuilder);
+	readonly notifications = inject(NotificationService);
 	readonly navigation: NavItem[] = navigation;
 	private readonly accountDependentSections = new Set<SectionKey>([
 		"transactions",
@@ -5422,11 +5514,16 @@ export class FinanceShellComponent {
 			}
 		}
 	});
-	readonly movementCategories = computed(() =>
-		this.store
+	movementCategories(): FinanceRecord[] {
+		const type = this.movementForm.controls.type.value;
+		if (!type) return [];
+		const categoryType = type === "ENTRADA" ? "income" : "expense";
+		return this.store
 			.sections()
-			.categories.records.filter((record) => record.apiId),
-	);
+			.categories.records.filter(
+				(record) => record.apiId && record.type === categoryType,
+			);
+	}
 	readonly modalOpen = computed(
 		() =>
 			(this.active() !== "statements" &&
@@ -5643,6 +5740,7 @@ export class FinanceShellComponent {
 	readonly movementEditSaving = signal(false);
 	readonly categoryPickerOpen = signal(false);
 	readonly paymentPickerOpen = signal(false);
+	readonly movementAccountPickerOpen = signal(false);
 	readonly movementPaymentMethods: {
 		value: MovementMethod;
 		label: string;
@@ -7233,6 +7331,7 @@ export class FinanceShellComponent {
 			this.movementAsideOpen.set(false);
 			this.categoryPickerOpen.set(false);
 			this.paymentPickerOpen.set(false);
+			this.movementAccountPickerOpen.set(false);
 			this.movementForm.reset({
 				type: "",
 				amount: null,
@@ -7247,11 +7346,59 @@ export class FinanceShellComponent {
 			});
 		}
 	}
+	toggleMovementAccountPicker(): void {
+		this.movementAccountPickerOpen.update((open) => !open);
+	}
+	selectMovementAccount(accountId: string | undefined): void {
+		if (!accountId) return;
+		this.movementForm.controls.accountId.setValue(accountId);
+		this.movementForm.controls.accountId.markAsTouched();
+		this.movementForm.controls.cardId.setValue("");
+		this.movementAccountPickerOpen.set(false);
+		this.paymentPickerOpen.set(false);
+		const method = this.movementForm.controls.method.value;
+		if (
+			method &&
+			!this.movementAvailablePaymentMethods().some(
+				(payment) => payment.value === method,
+			)
+		) {
+			this.movementForm.controls.method.setValue("");
+		}
+		this.syncMovementConditionalValidation();
+	}
+	selectedMovementAccount(): FinanceRecord | null {
+		const id = this.movementForm.controls.accountId.value;
+		return this.movementAccounts().find((account) => account.apiId === id) ?? null;
+	}
 	toggleCategoryPicker(): void {
+		if (!this.movementForm.controls.type.value) return;
 		this.categoryPickerOpen.update((open) => !open);
 	}
+	onMovementTypeChange(): void {
+		this.movementForm.controls.categoryId.setValue("");
+		this.categoryPickerOpen.set(false);
+		this.paymentPickerOpen.set(false);
+		const method = this.movementForm.controls.method.value;
+		if (
+			method &&
+			!this.movementAvailablePaymentMethods().some(
+				(payment) => payment.value === method,
+			)
+		) {
+			this.movementForm.controls.method.setValue("");
+			this.movementForm.controls.cardId.setValue("");
+		}
+		this.syncMovementConditionalValidation();
+	}
 	selectMovementCategory(categoryId: string | undefined): void {
-		if (!categoryId) return;
+		if (
+			!categoryId ||
+			!this.movementCategories().some(
+				(category) => category.apiId === categoryId,
+			)
+		)
+			return;
 		this.movementForm.controls.categoryId.setValue(categoryId);
 		this.movementForm.controls.categoryId.markAsTouched();
 		this.categoryPickerOpen.set(false);
@@ -7289,10 +7436,56 @@ export class FinanceShellComponent {
 			) ?? null
 		);
 	}
+	movementAvailablePaymentMethods(): typeof this.movementPaymentMethods {
+		const accountId = this.movementForm.controls.accountId.value;
+		const movementType = this.movementForm.controls.type.value;
+		if (!accountId || !movementType) return [];
+		const cards = this.store
+			.sections()
+			.cards.records.filter((card) => card.accountId === accountId);
+		const cardTypes = new Set(cards.map((card) => card.cardType));
+		const voucherOnlyAccount =
+			cardTypes.has("VOUCHER") &&
+			!cardTypes.has("CREDITO") &&
+			!cardTypes.has("DEBITO");
+		return this.movementPaymentMethods.filter((payment) => {
+			const cardPayment =
+				payment.value === "CARTAO_CREDITO" ||
+				payment.value === "CARTAO_DEBITO" ||
+				payment.value === "VOUCHER";
+			if (movementType === "ENTRADA" && cardPayment) return false;
+			if (voucherOnlyAccount) return payment.value === "VOUCHER";
+			if (
+				payment.value === "DINHEIRO" ||
+				payment.value === "PIX" ||
+				payment.value === "OUTRO"
+			) {
+				return true;
+			}
+			const cardType =
+				payment.value === "CARTAO_CREDITO"
+					? "CREDITO"
+					: payment.value === "CARTAO_DEBITO"
+						? "DEBITO"
+						: "VOUCHER";
+			return cards.some((card) => card.cardType === cardType);
+		});
+	}
 	togglePaymentPicker(): void {
+		if (
+			!this.movementForm.controls.accountId.value ||
+			!this.movementForm.controls.type.value
+		)
+			return;
 		this.paymentPickerOpen.update((open) => !open);
 	}
 	selectMovementPayment(method: MovementMethod): void {
+		if (
+			!this.movementAvailablePaymentMethods().some(
+				(payment) => payment.value === method,
+			)
+		)
+			return;
 		const previousMethod = this.movementForm.controls.method.value;
 		this.movementForm.controls.method.setValue(method);
 		if (previousMethod !== method) {
@@ -7344,7 +7537,7 @@ export class FinanceShellComponent {
 	} | null {
 		const method = this.movementForm.controls.method.value;
 		return (
-			this.movementPaymentMethods.find(
+			this.movementAvailablePaymentMethods().find(
 				(payment) => payment.value === method,
 			) ?? null
 		);
@@ -7358,6 +7551,17 @@ export class FinanceShellComponent {
 		}
 		const value = this.movementForm.getRawValue();
 		if (!value.type || !value.method || value.amount === null) return;
+		if (
+			!this.movementAvailablePaymentMethods().some(
+				(payment) => payment.value === value.method,
+			) ||
+			!this.movementCategories().some(
+				(category) => category.apiId === value.categoryId,
+			)
+		) {
+			this.movementForm.markAllAsTouched();
+			return;
+		}
 		const cardPayment =
 			value.method === "CARTAO_CREDITO" ||
 			value.method === "CARTAO_DEBITO" ||
@@ -7395,6 +7599,7 @@ export class FinanceShellComponent {
 				: {}),
 			...(cardPayment && value.cardId ? { cartaoId: value.cardId } : {}),
 		};
+		this.store.clearError();
 		this.movementSaving.set(true);
 		this.store
 			.createMovement(value.accountId, body)
@@ -7403,6 +7608,11 @@ export class FinanceShellComponent {
 				next: (created) => {
 					this.movementSaving.set(false);
 					if (created) {
+							this.notifications.success(
+								"Movimentação registrada com sucesso.",
+							);
+							this.store.loadSection("accounts", true);
+							this.store.loadDashboard(true);
 						this.closeMovementAside();
 						this.openMovementResult(
 							value.accountId,

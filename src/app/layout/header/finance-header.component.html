@@ -2,7 +2,30 @@
   <a class="brand" href="/" aria-label="FinLaunch - início"><img class="brand-logo" src="assets/finlaunch_logo.png" alt="FinLaunch" /></a>
   @if (accounts.length) {
     <div class="active-account-summary" aria-label="Resumo geral das contas bancárias">
-      <div><span>Saldo atual geral</span><strong>{{ money(totalBalance) }}</strong></div>
+      <div class="general-balance-wrap">
+        <div><span>Saldo atual geral</span><strong>{{ money(totalBalance) }}</strong></div>
+        <button class="balance-details-trigger" type="button" aria-label="Ver saldos das contas" [attr.aria-expanded]="balancesOpen" (click)="toggleBalances()">
+          <span class="material-symbols-outlined">{{ balancesOpen ? "expand_less" : "expand_more" }}</span>
+        </button>
+        @if (balancesOpen) {
+          <div class="account-balances-popover" role="dialog" aria-label="Saldos das contas bancárias">
+            <strong class="account-balances-title">Saldo por conta</strong>
+            <div class="account-balances-list">
+              @for (account of accounts; track account.id) {
+                <div class="account-balance-row">
+                  @if (bankLogoForName(account.title); as logo) {
+                    <img class="account-balance-logo" [src]="logo" alt="" />
+                  } @else {
+                    <span class="material-symbols-outlined">account_balance</span>
+                  }
+                  <strong>{{ account.title }}</strong>
+                  <b>{{ money(account.balance) }}</b>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
       <div><span>CrÃ©dito total</span><strong>{{ money(totalCredit()) }}</strong></div>
       <div><span>CrÃ©dito disponÃ­vel</span><strong>{{ money(totalCreditRemaining()) }}</strong></div>
     </div>
